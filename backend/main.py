@@ -378,6 +378,62 @@ def contact_from_resume(resume_id: Optional[int]) -> dict[str, str]:
     except Exception:
         return {'name': '', 'contact': ''}
 
+def resume_context(resume_id: Optional[int]) -> dict[str, Any]:
+    if not resume_id:
+        return {'contact': {}, 'summary': '', 'skills': [], 'achievements': [], 'roles': []}
+    try:
+        data = resume(resume_id)['data']
+    except Exception:
+        return {'contact': {}, 'summary': '', 'skills': [], 'achievements': [], 'roles': []}
+    achievements: list[str] = []
+    roles: list[str] = []
+    for job in data.get('experience', [])[:5]:
+        title = ' / '.join([x for x in [job.get('title'), job.get('company')] if x])
+        if title:
+            roles.append(title)
+        achievements.extend([str(b) for b in job.get('bullets', []) if str(b).strip()][:3])
+    skills = [cell for row in normalize_resume_data(data).get('skills', []) for cell in row if cell]
+    return {
+        'contact': data.get('contact', {}),
+        'summary': data.get('summary', ''),
+        'skills': skills[:36],
+        'achievements': achievements[:18],
+        'roles': roles,
+        'technical': data.get('technical', {}),
+        'education': data.get('education', []),
+        'certifications': data.get('certifications', []),
+    }
+
+def professional_letter_prompt(kind: str, details: dict[str, Any], sender_name: str, sender_contact: str, context: dict[str, Any]) -> str:
+    level_hint = 'senior/executive-level, polished, confident, and commercially mature; assume compensation expectations may be $115k+ when the role appears senior'
+    if kind == 'cover_letter':
+        task = """Write a finished cover letter in proper US business letter format.
+Required structure:
+1. Sender name/contact, date, company line, and salutation.
+2. Strong opening naming the company and role, with a specific reason this opportunity fits.
+3. Two body paragraphs that connect the job description to concrete resume achievements, technologies, leadership scope, operational impact, metrics when provided, and business outcomes.
+4. Compelling close requesting a conversation.
+Constraints: 3-4 substantial paragraphs after the salutation, no generic filler, no bracket placeholders unless information is truly missing, no bullets, no markdown. Return only the letter."""
+    else:
+        task = """Write a finished post-interview thank-you letter in proper professional letter format.
+Required structure:
+1. Sender name/contact, date, and salutation.
+2. Warm opening thanking the interviewer for the specific role/company conversation.
+3. One or two body paragraphs that reference the talking points, connect them to specific resume achievements/skills, and reinforce business value.
+4. Concise close reaffirming interest and next-step enthusiasm.
+Constraints: 3-4 polished paragraphs after the salutation, no generic filler, no bracket placeholders unless information is truly missing, no bullets, no markdown. Return only the letter."""
+    return f"""You are an elite executive resume writer and career strategist. {task}
+
+Tone: {level_hint}. Use precise, credible language. Avoid phrases like "I am excited" unless it is earned by specifics. Do not sound like a template.
+
+Sender name: {sender_name or '[Your Name]'}
+Sender contact: {sender_contact or '[Email] | [Phone] | [Location]'}
+Details JSON:
+{json.dumps(details, indent=2)}
+Linked resume context JSON:
+{json.dumps(context, indent=2)}
+"""
+
 def today_long() -> str:
     return datetime.utcnow().strftime('%B %-d, %Y') if os.name != 'nt' else datetime.utcnow().strftime('%B %#d, %Y')
 
@@ -396,8 +452,8 @@ def cover(payload: CoverIn):
     linked = contact_from_resume(payload.resume_id)
     sender_name = payload.sender_name or linked['name']
     sender_contact = payload.sender_contact or linked['contact']
-    resume_json = json.dumps(resume(payload.resume_id)['data']) if payload.resume_id else '{}'
-    prompt = f"Write a professional cover letter for {payload.company}, hiring manager {payload.hiring_manager}, using optional resume JSON and job description. Return only the finished letter. RESUME={resume_json} JOB={payload.job_description} SENDER={sender_name} CONTACT={sender_contact}"
+    details = payload.model_dump()
+    prompt = professional_letter_prompt('cover_letter', details, sender_name, sender_contact, resume_context(payload.resume_id))
     text = claude(prompt) or cover_template(payload.company, payload.hiring_manager, sender_name, sender_contact)
     return save_doc(DocIn(kind='cover_letter', title=f'Cover Letter - {payload.company or "Draft"}', resume_id=payload.resume_id, data={'content': text, 'sender_name': sender_name, 'sender_contact': sender_contact, **payload.model_dump()}))
 
@@ -406,15 +462,40 @@ def thank_you(payload: ThankYouIn):
     linked = contact_from_resume(payload.resume_id)
     sender_name = payload.sender_name or linked['name']
     sender_contact = payload.sender_contact or linked['contact']
-    text = claude(f'Write a professional post-interview thank you letter. Return only the finished letter. Details: {payload.model_dump_json()} SENDER={sender_name} CONTACT={sender_contact}') or thank_template(payload.company, payload.interviewer, payload.position, payload.interview_date, sender_name, sender_contact)
+    details = payload.model_dump()
+    prompt = professional_letter_prompt('thank_you', details, sender_name, sender_contact, resume_context(payload.resume_id))
+    text = claude(prompt) or thank_template(payload.company, payload.interviewer, payload.position, payload.interview_date, sender_name, sender_contact)
     return save_doc(DocIn(kind='thank_you', title=f'Thank You - {payload.company or "Draft"}', resume_id=payload.resume_id, data={'content': text, 'sender_name': sender_name, 'sender_contact': sender_contact, **payload.model_dump()}))
 
 @app.post('/api/role-build')
 def role_build(payload: RoleBuildIn):
-    generated = claude(f'Create resume content JSON for a {payload.title} in {payload.industry}. Include summary, skills, technical, experience bullets. Keep it professional and editable.')
-    base = json.loads(json.dumps(DEFAULT_RESUME))
-    base['contact']['title'] = payload.title
-    base['summary'] = generated or f'Experienced professional targeting {payload.title} roles in {payload.industry}, with strengths in operational reliability, stakeholder support, documentation, process improvement, and secure technology delivery.'
+    prompt = '''Create premium resume content JSON for the requested target role. Return ONLY JSON matching this schema:
+{"contact":{"name":"","title":"","email":"","phone":"","linkedin":"","portfolio":"","location":""},"summary":"","skills":[["","",""]],"technical":{"Category":"items"},"experience":[{"title":"","company":"","location":"","dates":"","bullets":[""]}],"education":[{"degree":"","school":"","details":""}],"certifications":[],"additional":[],"custom_sections":[{"title":"","bullets":[""]}]}
+Requirements: 12-18 role-specific Areas of Expertise in three-column rows, strong executive summary, credible achievement-oriented bullets, and role-specific technical/tool categories. Keep contact fields blank except title.'''
+    prompt += '\nREQUEST:' + payload.model_dump_json()
+    generated = claude(prompt)
+    parsed = extract_json_object(generated or '')
+    if parsed:
+        parsed.setdefault('contact', {})
+        parsed['contact'] = {**{'name': '', 'title': '', 'email': '', 'phone': '', 'linkedin': '', 'portfolio': '', 'location': ''}, **parsed.get('contact', {})}
+        parsed['contact']['title'] = payload.title
+        return {'resume': normalize_resume_data(parsed), 'raw_generation': generated}
+    role_skills = [
+        'Strategic Planning', 'Operational Leadership', 'Stakeholder Management',
+        'Process Improvement', 'Risk Management', 'Cross-Functional Collaboration',
+        'Documentation', 'Vendor Management', 'Performance Reporting',
+        'Change Management', 'Compliance', 'Service Delivery'
+    ]
+    if re.search(r'network|infrastructure|systems|endpoint|cloud|security|administrator|engineer', payload.title, re.I):
+        role_skills = ['Network Administration', 'Infrastructure Operations', 'Microsoft 365 / Entra ID', 'Active Directory / Group Policy', 'Endpoint Management', 'Firewall / VPN', 'Systems Monitoring', 'Security Hardening', 'Incident Response', 'Vendor Management', 'Documentation', 'Project Delivery']
+    base = normalize_resume_data({
+        'contact': {'name': '', 'title': payload.title, 'email': '', 'phone': '', 'linkedin': '', 'portfolio': '', 'location': ''},
+        'summary': f'Senior {payload.title} candidate with a strong background in {payload.industry}, operational execution, stakeholder partnership, and measurable process improvement. Brings disciplined documentation, risk-aware decision making, and the ability to translate business needs into reliable outcomes.',
+        'skills': [(role_skills[i:i+3] + ['', '', ''])[:3] for i in range(0, len(role_skills), 3)],
+        'technical': {'Core Capabilities': ', '.join(role_skills[:8]), 'Target Industry': payload.industry},
+        'experience': [{'title': payload.title, 'company': '', 'location': '', 'dates': '', 'bullets': ['Led role-aligned initiatives that improved service quality, consistency, and stakeholder confidence.', 'Built repeatable processes, documentation, and reporting to reduce operational risk and improve execution.', 'Partnered with cross-functional teams and vendors to resolve issues, prioritize work, and deliver business outcomes.']}],
+        'education': [], 'certifications': [], 'additional': [], 'custom_sections': []
+    })
     return {'resume': base, 'raw_generation': generated}
 
 def extract_json_object(text: str) -> Optional[dict[str, Any]]:
