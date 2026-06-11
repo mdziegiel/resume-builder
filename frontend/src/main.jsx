@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowLeft, Download, FileText, Plus, Save, Sparkles, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Plus, Save, Sparkles, Trash2, Upload, Wand2 } from 'lucide-react'
 import './index.css'
 
 const API = '/api'
