@@ -5,8 +5,8 @@ A professional, self-hosted resume and career document builder for creating port
 ## Features
 
 - Premium dark glassmorphism UI using near-black `#06070d`, orange `#f97316`, and Inter/system fonts
-- Side-by-side resume editor and LinkedIn-quality browser preview
-- Clean two-column resume header layout
+- Side-by-side resume editor with a server-generated PDF preview in an iframe
+- Professional DOCX/PDF rendering from one resume data model, not browser CSS approximations
 - Professional summary, three-column expertise table, technical proficiencies, career experience, education, certifications, and additional experience
 - Blank dashboard by default, with an optional Load Sample Resume action
 - Resume Builder route opens a template picker when no resume is active, then opens the side-by-side editor and preview
@@ -14,6 +14,7 @@ A professional, self-hosted resume and career document builder for creating port
 - Build from Description intake form for personalized Claude-assisted resume generation
 - Delete saved resume versions from the dashboard with confirmation
 - Eight resume templates: Classic, Modern, Executive, Technical, Minimal, Two-Column, Corporate, ATS-Optimized
+- Template-specific Word/PDF styling: serif classic, orange modern accents, navy/gold executive, technical/two-column sidebars, minimal whitespace, corporate header treatment, and ATS-safe Arial output
 - Rich text editing for summaries and bullets, including bold/italic support
 - Inline editing directly in the live resume preview
 - Skills edited as chips and three-column expertise rows
@@ -33,13 +34,13 @@ A professional, self-hosted resume and career document builder for creating port
 
 ## Optional sample resume
 
-The app starts with an empty dashboard. Use **Load Sample Resume** if you want Michael Dziegiel's sample resume profile for testing or as a formatting reference:
+The app starts with an empty dashboard. Use **Load Sample Resume** if you want a fictional Alex Johnson sample resume for testing or as a formatting reference:
 
-- Senior Network Administrator / IT Support & Network Engineer
-- Contact data, education, certifications, skills tables, technical proficiencies, career experience, and additional MRDTech experience
-- Experience entries for Hans Kissle, Skyterra Technologies, and General Investment & Development
+- Senior IT Professional
+- Fictional contact data, education, certifications, skills tables, technical proficiencies, career experience, and additional project content
+- Experience entries for Northbridge Technology Group and Harborview Professional Services
 
-The source machine did not contain an uploaded original resume file, so the included seeded bullets are professional reconstructed content based on the provided role history and career level. Replace or refine inside the editor as needed. Honest data beats fabricated artifacts. Satan agrees.
+The sample exists to exercise the template renderers without leaking real client or owner data. Replace or refine inside the editor as needed. Honest data beats fabricated artifacts. Satan agrees.
 
 ## Docker quickstart
 
@@ -75,6 +76,9 @@ UPLOAD_DIR=/data/uploads
 - `POST /api/role-build`
 - `GET /api/resumes/{id}/export/docx`
 - `GET /api/resumes/{id}/export/pdf`
+- `POST /api/resumes/export/docx` for unsaved/current editor data
+- `POST /api/resumes/export/pdf` for unsaved/current editor data
+- `POST /api/resume-preview/pdf` for the live iframe PDF preview
 
 ## Screenshots
 

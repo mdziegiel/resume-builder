@@ -21,6 +21,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from database import DB_PATH, UPLOAD_DIR, connect, dumps, loads, now
+from document_renderer import docx_bytes, merge_resume_data, pdf_bytes, safe_filename
 from seed import DEFAULT_RESUME, insert_sample_resume, seed
 
 app = FastAPI(title='Resume Builder', version='1.0.0')
@@ -31,6 +32,11 @@ class ResumeIn(BaseModel):
     title: str
     template: str = 'executive'
     data: dict[str, Any]
+
+class ResumeRenderIn(BaseModel):
+    template: str = 'modern'
+    data: dict[str, Any]
+    name: str = 'resume'
 
 class DocIn(BaseModel):
     kind: str
@@ -556,6 +562,7 @@ Make it specific, premium, truthful to the intake, and optimized for the target 
     return save_resume(ResumeIn(name=f"{payload.title or 'AI'} Resume Draft", title=payload.title or 'Resume Draft', template=payload.template, data=resume_data))
 
 def render_text(data):
+    data = merge_resume_data(data)
     c = data['contact']
     lines = [c['name'], c['title'], f"{c['email']} | {c['phone']} | {c['location']}", c.get('linkedin',''), c.get('portfolio',''), '', 'PROFESSIONAL SUMMARY', data.get('summary',''), '', 'AREAS OF EXPERTISE']
     lines += [' | '.join(row) for row in data.get('skills', [])]
@@ -569,27 +576,36 @@ def render_text(data):
     lines += ['', 'ADDITIONAL EXPERIENCE'] + data.get('additional', [])
     return '\n'.join(lines)
 
+def resume_export_response(fmt: str, data: dict[str, Any], template: str, name: str = 'resume', disposition: str = 'attachment'):
+    template = template or 'modern'
+    merged = merge_resume_data(data)
+    filename = safe_filename(merged.get('contact', {}).get('name') or name, template, fmt)
+    if fmt == 'docx':
+        return Response(
+            docx_bytes(merged, template),
+            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            headers={'Content-Disposition': f'{disposition}; filename="{filename}"'}
+        )
+    if fmt == 'pdf':
+        return Response(
+            pdf_bytes(merged, template),
+            media_type='application/pdf',
+            headers={'Content-Disposition': f'{disposition}; filename="{filename}"', 'Cache-Control': 'no-store'}
+        )
+    raise HTTPException(400, 'fmt must be docx or pdf')
+
 @app.get('/api/resumes/{resume_id}/export/{fmt}')
 def export_resume(resume_id: int, fmt: str):
-    r = resume(resume_id); data = r['data']; text = render_text(data)
-    if fmt == 'docx':
-        doc = Document(); c = data['contact']; doc.add_heading(c['name'], 0); doc.add_paragraph(c['title']); doc.add_paragraph(f"{c['email']} | {c['phone']} | {c['location']} | {c.get('linkedin','')} | {c.get('portfolio','')}")
-        for line in text.split('\n')[5:]:
-            if line.isupper() and line: doc.add_heading(line, level=1)
-            elif line.startswith('• '): doc.add_paragraph(line[2:], style='List Bullet')
-            else: doc.add_paragraph(line)
-        buf = io.BytesIO(); doc.save(buf)
-        return Response(buf.getvalue(), media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', headers={'Content-Disposition': 'attachment; filename=resume.docx'})
-    if fmt == 'pdf':
-        buf = io.BytesIO(); styles = getSampleStyleSheet(); story = []
-        doc = SimpleDocTemplate(buf, pagesize=LETTER, leftMargin=.55*inch, rightMargin=.55*inch, topMargin=.45*inch, bottomMargin=.45*inch)
-        for line in text.split('\n'):
-            if not line: story.append(Spacer(1, 6)); continue
-            style = styles['Heading2'] if line.isupper() else styles['BodyText']
-            story.append(Paragraph(line.replace('&','&amp;'), style))
-        doc.build(story)
-        return Response(buf.getvalue(), media_type='application/pdf', headers={'Content-Disposition': 'attachment; filename=resume.pdf'})
-    raise HTTPException(400, 'fmt must be docx or pdf')
+    r = resume(resume_id)
+    return resume_export_response(fmt, r['data'], r.get('template') or 'modern', r.get('name') or 'resume')
+
+@app.post('/api/resumes/export/{fmt}')
+def export_resume_payload(fmt: str, payload: ResumeRenderIn):
+    return resume_export_response(fmt, payload.data, payload.template, payload.name)
+
+@app.post('/api/resume-preview/pdf')
+def preview_resume_pdf(payload: ResumeRenderIn):
+    return resume_export_response('pdf', payload.data, payload.template, payload.name, disposition='inline')
 
 @app.post('/api/documents/export/{fmt}')
 def export_document(fmt: str, payload: DocIn):

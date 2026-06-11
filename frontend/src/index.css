@@ -28,6 +28,9 @@ body { margin: 0; background: radial-gradient(circle at 15% 0%, rgba(249,115,22,
 
 .resume-page { background: #fff; color: #111827; min-height: 1056px; width: 816px; max-width: 100%; margin: 0 auto; padding: 46px 52px; box-shadow: 0 30px 90px rgba(0,0,0,.45); font-size: 13px; line-height: 1.45; }
 .letter-page { background: white; color: #111827; min-height: 1056px; width: 816px; max-width: 100%; margin: 0 auto; padding: 72px; box-shadow: 0 30px 90px rgba(0,0,0,.45); font-family: Georgia, 'Times New Roman', serif; }
+.pdf-preview-shell { width: min(100%, 900px); margin: 0 auto; }
+.pdf-preview-frame { display: block; width: 100%; height: calc(100vh - 170px); min-height: 760px; border: 0; border-radius: 18px; background: white; box-shadow: 0 30px 90px rgba(0,0,0,.45); }
+.pdf-preview-placeholder { min-height: 760px; display: grid; place-items: center; border: 1px dashed rgba(255,255,255,.2); border-radius: 18px; color: #94a3b8; background: rgba(15,23,42,.55); }
 .resume-page * { box-sizing: border-box; }
 .resume-page p { margin: 0 0 7px; }
 .resume-page ul { margin: 7px 0 0 18px; padding: 0; }

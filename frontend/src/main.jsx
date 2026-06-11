@@ -102,7 +102,7 @@ function TemplatePicker({ setCurrent, setPage, reload }) {
 
 function ImportReview({ review, onCancel, onConfirm }) {
   const [template, setTemplate] = useState('modern')
-  return <div className="fixed inset-0 z-50 overflow-auto bg-black/80 p-6 backdrop-blur"><div className="mx-auto max-w-7xl"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-3xl font-black">Review uploaded resume</h2><p className="text-slate-400">Original extraction on the left. Parsed editable resume on the right. Confirm before saving, because blindly trusting parsers is how HR software happened.</p></div><div className="flex gap-2"><select className="input w-56" value={template} onChange={e => setTemplate(e.target.value)}>{templates.map(t => <option key={t} value={t}>{templateMeta[t][0]}</option>)}</select><button className="btn" onClick={onCancel}>Cancel</button><button className="btn btn-primary" onClick={() => onConfirm(template)}>Confirm Import</button></div></div><div className="grid gap-5 lg:grid-cols-2"><pre className="glass max-h-[78vh] overflow-auto whitespace-pre-wrap p-5 text-sm text-slate-200 scrollbar">{review.original_text}</pre><div className="max-h-[78vh] overflow-auto scrollbar"><ResumePreview data={review.parsed} setData={() => { }} template={template} /></div></div></div></div>
+  return <div className="fixed inset-0 z-50 overflow-auto bg-black/80 p-6 backdrop-blur"><div className="mx-auto max-w-7xl"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-3xl font-black">Review uploaded resume</h2><p className="text-slate-400">Original extraction on the left. Parsed editable resume on the right. Confirm before saving, because blindly trusting parsers is how HR software happened.</p></div><div className="flex gap-2"><select className="input w-56" value={template} onChange={e => setTemplate(e.target.value)}>{templates.map(t => <option key={t} value={t}>{templateMeta[t][0]}</option>)}</select><button className="btn" onClick={onCancel}>Cancel</button><button className="btn btn-primary" onClick={() => onConfirm(template)}>Confirm Import</button></div></div><div className="grid gap-5 lg:grid-cols-2"><pre className="glass max-h-[78vh] overflow-auto whitespace-pre-wrap p-5 text-sm text-slate-200 scrollbar">{review.original_text}</pre><div className="max-h-[78vh] overflow-auto scrollbar"><PdfPreview data={review.parsed} template={template} /></div></div></div></div>
 }
 
 function BuildFromDescription({ setCurrent, setPage, reload }) {
@@ -127,7 +127,7 @@ function Editor({ resume, setResume, setPage, reload }) {
   function back() { if (dirty && !confirm('Discard unsaved changes and return to the Dashboard?')) return; setResume(null); setPage('dashboard') }
   return <div className="grid gap-6 xl:grid-cols-[560px_1fr]">
     <section className="glass max-h-[calc(100vh-130px)] overflow-auto p-5 scrollbar">
-      <div className="flex flex-wrap gap-2"><button className="btn" onClick={back}><ArrowLeft className="mr-1 inline h-4 w-4" />Back</button><button className="btn btn-primary" onClick={save}><Save className="mr-1 inline h-4 w-4" />Save</button><button className="btn" onClick={dup}>Save Version</button>{resume.id && <a className="btn" href={`/api/resumes/${resume.id}/export/docx`}><Download className="mr-1 inline h-4 w-4" />DOCX</a>}{resume.id && <a className="btn" href={`/api/resumes/${resume.id}/export/pdf`}>PDF</a>}</div>
+      <div className="flex flex-wrap gap-2"><button className="btn" onClick={back}><ArrowLeft className="mr-1 inline h-4 w-4" />Back</button><button className="btn btn-primary" onClick={save}><Save className="mr-1 inline h-4 w-4" />Save</button><button className="btn" onClick={dup}>Save Version</button><button className="btn" onClick={() => downloadResume(data, template, 'docx')}><Download className="mr-1 inline h-4 w-4" />DOCX</button><button className="btn" onClick={() => downloadResume(data, template, 'pdf')}>PDF</button></div>
       <label className="mt-4 block text-sm text-slate-400">Template</label><select className="input mt-1" value={template} onChange={e => setTemplate(e.target.value)}>{templates.map(t => <option key={t} value={t}>{templateMeta[t][0]}</option>)}</select>
       <Section title="Contact Info"><Input label="Name" v={data.contact.name} on={v => set(['contact', 'name'], v)} /><Input label="Title" v={data.contact.title} on={v => set(['contact', 'title'], v)} /><Input label="Email" v={data.contact.email} on={v => set(['contact', 'email'], v)} /><Input label="Phone" v={data.contact.phone} on={v => set(['contact', 'phone'], v)} /><Input label="LinkedIn" v={data.contact.linkedin} on={v => set(['contact', 'linkedin'], v)} /><Input label="Portfolio" v={data.contact.portfolio} on={v => set(['contact', 'portfolio'], v)} /><Input label="Location" v={data.contact.location} on={v => set(['contact', 'location'], v)} /></Section>
       <Section title="Professional Summary"><RichText value={data.summary} onChange={v => set(['summary'], v)} /></Section>
@@ -140,7 +140,7 @@ function Editor({ resume, setResume, setPage, reload }) {
       <CustomSections data={data} setData={setData} />
       <Section title="Job-targeted resume mode"><textarea className="input h-32" placeholder="Paste job description" value={job} onChange={e => setJob(e.target.value)} /><button className="btn btn-primary mt-2" onClick={analyze}><Sparkles className="mr-1 inline h-4 w-4" />Analyze ATS Fit</button>{tailor && <div className="mt-3 rounded-xl bg-black/30 p-3"><div className="text-2xl font-black text-orange-300">ATS {tailor.ats_score}%</div><p className="mt-2 text-sm">Missing keywords: {tailor.missing_keywords.join(', ') || 'None obvious'}</p><p className="mt-2 whitespace-pre-wrap text-sm text-slate-300">{tailor.suggestions}</p></div>}</Section>
     </section>
-    <section className="overflow-auto scrollbar"><ResumePreview data={data} setData={setData} template={template} /></section>
+    <section className="overflow-auto scrollbar"><PdfPreview data={data} template={template} /></section>
   </div>
 }
 function Section({ title, children }) { return <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4"><h3 className="mb-3 font-black text-orange-300">{title}</h3>{children}</div> }
@@ -153,99 +153,62 @@ function Experience({ data, setData }) { const jobs = data.experience || []; con
 function Education({ data, setData }) { const items = data.education || []; return <Section title="Education">{items.map((e, i) => <div className="mb-3 grid gap-2 md:grid-cols-3" key={i}><input className="input" placeholder="Degree" value={e.degree || ''} onChange={ev => { const a = [...items]; a[i].degree = ev.target.value; setData({ ...data, education: a }) }} /><input className="input" placeholder="School" value={e.school || ''} onChange={ev => { const a = [...items]; a[i].school = ev.target.value; setData({ ...data, education: a }) }} /><input className="input" placeholder="Details" value={e.details || ''} onChange={ev => { const a = [...items]; a[i].details = ev.target.value; setData({ ...data, education: a }) }} /></div>)}<button className="btn" onClick={() => setData({ ...data, education: [...items, { degree: '', school: '', details: '' }] })}>Add Education</button></Section> }
 function CustomSections({ data, setData }) { const sections = data.custom_sections || []; return <Section title="Custom Sections">{sections.map((s, i) => <div className="mb-4 rounded-xl bg-black/20 p-3" key={i}><Input label="Section title" v={s.title} on={v => { const a = [...sections]; a[i].title = v; setData({ ...data, custom_sections: a }) }} /><List title="Bullets" items={s.bullets || []} setItems={items => { const a = [...sections]; a[i].bullets = items; setData({ ...data, custom_sections: a }) }} /><button className="btn" onClick={() => setData({ ...data, custom_sections: sections.filter((_, n) => n !== i) })}>Remove Custom Section</button></div>)}<button className="btn" onClick={() => setData({ ...data, custom_sections: [...sections, { title: 'Custom Section', bullets: [''] }] })}>Add Custom Section</button></Section> }
 
-function Editable({ children, onSave, className = '', tag: Tag = 'span' }) { return <Tag className={className} contentEditable suppressContentEditableWarning onBlur={e => onSave(safe(e.currentTarget.innerHTML))}>{children}</Tag> }
-function ResumePreview({ data, setData = () => {}, template }) {
-  const placeholderResume = {
-    contact: {
-      name: 'Alex Johnson',
-      title: 'Senior IT Professional',
-      email: 'alex.johnson@email.com',
-      phone: '(555) 555-0100',
-      linkedin: 'linkedin.com/in/alexjohnson',
-      portfolio: 'portfolio.example.com',
-      location: 'Boston, MA'
-    },
-    summary: 'Senior IT professional with extensive experience supporting secure infrastructure, cloud services, Microsoft 365 environments, endpoint platforms, and business-critical systems. Known for practical troubleshooting, clear documentation, stakeholder support, and dependable execution across complex technology environments.',
-    skills: [
-      ['Network Administration', 'Cloud Infrastructure', 'Microsoft 365'],
-      ['Active Directory', 'Endpoint Management', 'Security'],
-      ['PowerShell', 'Virtualization', 'Infrastructure Documentation']
-    ],
-    technical: {
-      'Platforms': 'Windows Server, Windows 10/11, Microsoft 365, Azure, VMware, Hyper-V, cloud-hosted services',
-      'Administration': 'Active Directory, Group Policy, endpoint management, patching, backups, access control, documentation',
-      'Security': 'Endpoint protection, MFA, monitoring, vulnerability remediation, incident response, policy enforcement'
-    },
-    experience: [
-      { title: 'Senior IT Systems Administrator', company: 'Northbridge Technology Group', location: 'Boston, MA', dates: '2022 – Present', bullets: [
-        'Administer secure network, server, Microsoft 365, and endpoint infrastructure supporting daily business operations.',
-        'Maintain Active Directory, Group Policy, access controls, patching, backups, endpoint configuration, and technical documentation.',
-        'Improve reliability and security by resolving recurring infrastructure issues and standardizing operational procedures.'
-      ] },
-      { title: 'IT Infrastructure Specialist', company: 'Harborview Professional Services', location: 'Cambridge, MA', dates: '2019 – 2022', bullets: [
-        'Delivered infrastructure support, cloud administration, endpoint troubleshooting, and escalated technical resolution for multi-site users.',
-        'Supported network, virtualization, Microsoft 365, and security tools while coordinating upgrades and vendor-assisted projects.',
-        'Created repeatable support documentation that improved onboarding, troubleshooting consistency, and operational handoff.'
-      ] }
-    ],
-    education: [{ degree: 'Bachelor of Science, Information Technology', school: 'Northeastern State College', details: 'Boston, MA' }],
-    certifications: ['CompTIA Network+', 'Microsoft 365 Fundamentals', 'Azure Fundamentals'],
-    additional: ['Selected projects include endpoint modernization, Microsoft 365 administration, network documentation, cloud migration support, and security policy improvements.'],
-    custom_sections: []
-  }
-  const hasText = (v) => String(v || '').replace(/<[^>]+>/g, '').trim().length > 0
-  const pick = (actual, fallback) => hasText(actual) ? actual : fallback
-  const c = data?.contact || {}
-  const pc = placeholderResume.contact
-  const displayContact = {
-    name: pick(c.name, pc.name), title: pick(c.title, pc.title), email: pick(c.email, pc.email), phone: pick(c.phone, pc.phone),
-    linkedin: pick(c.linkedin, pc.linkedin), portfolio: pick(c.portfolio, pc.portfolio), location: pick(c.location, pc.location)
-  }
-  const actualSkillRows = normalizeSkillRows(data?.skills)
-  const skillRows = actualSkillRows.flat().some(hasText) ? actualSkillRows : placeholderResume.skills
-  const technicalEntries = Object.entries(data?.technical || {}).filter(([, v]) => hasText(v))
-  const technicalRows = technicalEntries.length ? technicalEntries : Object.entries(placeholderResume.technical)
-  const experienceRows = (data?.experience || []).filter(j => hasText(j?.title) || hasText(j?.company) || (j?.bullets || []).some(hasText))
-  const jobs = experienceRows.length ? experienceRows : placeholderResume.experience
-  const educationRows = (data?.education || []).filter(e => hasText(e?.degree) || hasText(e?.school) || hasText(e?.details))
-  const education = educationRows.length ? educationRows : placeholderResume.education
-  const certifications = (data?.certifications || []).filter(hasText)
-  const certs = certifications.length ? certifications : placeholderResume.certifications
-  const additionalRows = (data?.additional || []).filter(hasText)
-  const additional = additionalRows.length ? additionalRows : placeholderResume.additional
-  const customSections = (data?.custom_sections || []).filter(s => hasText(s?.title) || (s?.bullets || []).some(hasText))
-  const ats = template === 'ats-optimized'
-  const isPlaceholder = (value, fallback) => String(value || '') === String(fallback || '')
-  const editableClass = (value, fallback, extra = '') => `${extra} ${isPlaceholder(value, fallback) ? 'resume-placeholder' : ''}`.trim()
-  const setContact = (k, v) => setData({ ...data, contact: { ...(data.contact || {}), [k]: v } })
-  const setSummary = v => setData({ ...data, summary: v })
-  const setBullet = (i, j, v) => {
-    const experience = structuredClone(data.experience || [])
-    if (!experience[i]) return
-    experience[i].bullets[j] = v
-    setData({ ...data, experience })
-  }
-  const contactItems = [displayContact.email, displayContact.phone, displayContact.location, displayContact.linkedin, displayContact.portfolio]
-  const contactLine = contactItems.filter(Boolean).join(ats ? ' | ' : ' • ')
-  const HeaderIdentity = ({ sidebar = false }) => <>
-    <Editable tag="h1" className={editableClass(displayContact.name, pc.name)} onSave={v => setContact('name', v)}>{displayContact.name}</Editable>
-    <Editable tag="p" className={editableClass(displayContact.title, pc.title, sidebar ? 'sidebar-title' : 'resume-title')} onSave={v => setContact('title', v)}>{displayContact.title}</Editable>
-  </>
-  const ContactBlock = ({ compact = false }) => <div className={compact ? 'resume-contact-line' : 'resume-contact'}>{compact ? contactLine : contactItems.map((item, i) => <p key={i}>{item}</p>)}</div>
-  const SectionHeading = ({ children }) => <H template={template}>{children}</H>
-  const SkillsBlock = ({ chips = false } = {}) => <section className="resume-section resume-skills-block"><SectionHeading>Areas of Expertise</SectionHeading>{ats ? <p className="ats-skill-line">{skillRows.flat().filter(Boolean).join(' | ')}</p> : chips ? <div className="skill-chips">{skillRows.flat().filter(Boolean).map((skill, i) => <span key={i}>{skill}</span>)}</div> : <table className="skill-table"><tbody>{skillRows.map((r, i) => <tr key={i}>{[0, 1, 2].map(n => <td key={n}>{r[n] || ''}</td>)}</tr>)}</tbody></table>}</section>
-  const TechnicalBlock = () => <section className="resume-section"><SectionHeading>Technical Proficiencies</SectionHeading><div className="technical-list">{technicalRows.map(([k, v]) => <p key={k}><b>{k}:</b> {v}</p>)}</div></section>
-  const ExperienceBlock = () => <section className="resume-section"><SectionHeading>Career Experience</SectionHeading>{jobs.map((j, i) => <article key={i} className="experience-entry"><div className="job-line"><div><b>{[pick(j.title, placeholderResume.experience[i]?.title || 'Position Title'), pick(j.company, placeholderResume.experience[i]?.company || 'Company Name')].filter(Boolean).join(' — ')}</b><span>{pick(j.location, placeholderResume.experience[i]?.location || 'Location')}</span></div><time>{pick(j.dates, placeholderResume.experience[i]?.dates || 'Dates')}</time></div><ul>{((j.bullets || []).filter(hasText).length ? j.bullets.filter(hasText) : (placeholderResume.experience[i]?.bullets || placeholderResume.experience[0].bullets)).map((b, n) => <li key={n}>{experienceRows.length && data.experience?.[i]?.bullets?.[n] ? <Editable onSave={v => setBullet(i, n, v)}>{safe(b)}</Editable> : safe(b)}</li>)}</ul></article>)}</section>
-  const EducationBlock = () => <section className="resume-section"><SectionHeading>Education</SectionHeading>{education.map((e, i) => <p key={i} className="education-line"><b>{pick(e.degree, placeholderResume.education[0].degree)}</b>{pick(e.school, placeholderResume.education[0].school) ? ` — ${pick(e.school, placeholderResume.education[0].school)}` : ''}{pick(e.details, placeholderResume.education[0].details) ? `, ${pick(e.details, placeholderResume.education[0].details)}` : ''}</p>)}</section>
-  const CertBlock = () => <section className="resume-section"><SectionHeading>Certifications</SectionHeading><p className="cert-line">{certs.join(ats ? ' | ' : ' • ')}</p></section>
-  const AdditionalBlock = () => <section className="resume-section"><SectionHeading>Additional Experience</SectionHeading>{additional.map((a, i) => <p key={i}>{a}</p>)}</section>
-  const CustomBlock = () => customSections.map((s, i) => <section key={i} className="resume-section"><SectionHeading>{s.title}</SectionHeading><ul>{(s.bullets || []).filter(hasText).map((b, n) => <li key={n}>{b}</li>)}</ul></section>)
-  const MainContent = ({ includeSkills = true, includeTechnical = true, includeCerts = true, includeAdditional = true, chips = false } = {}) => <main className="resume-main"><section className="resume-section resume-summary"><SectionHeading>Professional Summary</SectionHeading><Editable tag="p" className={editableClass(pick(data?.summary, placeholderResume.summary), placeholderResume.summary)} onSave={setSummary}>{safe(pick(data?.summary, placeholderResume.summary))}</Editable></section>{includeSkills && <SkillsBlock chips={chips} />}{includeTechnical && <TechnicalBlock />}<ExperienceBlock /><EducationBlock />{includeCerts && <CertBlock />}{includeAdditional && <AdditionalBlock />}<CustomBlock /></main>
-  if (template === 'technical') return <div className="resume-page resume-technical resume-sidebar-layout"><aside className="resume-sidebar"><HeaderIdentity sidebar /><H template={template}>Contact</H><ContactBlock /><SkillsBlock chips /><CertBlock /></aside><MainContent includeSkills={false} includeCerts={false} /></div>
-  if (template === 'two-column') return <div className="resume-page resume-two-column resume-sidebar-layout"><aside className="resume-sidebar"><HeaderIdentity sidebar /><H template={template}>Contact</H><ContactBlock /><SkillsBlock chips /><CertBlock /></aside><MainContent includeSkills={false} includeCerts={false} chips /></div>
-  return <div className={`resume-page resume-${template}`}><header className="resume-header"><div className="resume-identity"><HeaderIdentity /></div>{template === 'modern' || template === 'minimal' || template === 'ats-optimized' ? <ContactBlock compact /> : <ContactBlock />}</header><MainContent /></div>
+async function downloadResume(data, template, fmt) {
+  const r = await fetch(`/api/resumes/export/${fmt}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data, template, name: data?.contact?.name || 'resume' })
+  })
+  if (!r.ok) { alert(await r.text()); return }
+  const blob = await r.blob()
+  const disposition = r.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename="?([^";]+)"?/)
+  const name = match?.[1] || `resume-${template}.${fmt}`
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1500)
 }
-function H({ children, template }) { return <h2 className={`resume-section-title ${template === 'ats-optimized' ? 'ats-heading' : ''}`}>{children}</h2> }
+
+function PdfPreview({ data, template }) {
+  const [url, setUrl] = useState('')
+  const [state, setState] = useState('Rendering PDF preview...')
+  useEffect(() => {
+    let cancelled = false
+    let oldUrl = ''
+    const handle = setTimeout(async () => {
+      setState('Regenerating PDF preview...')
+      try {
+        const r = await fetch('/api/resume-preview/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data, template, name: data?.contact?.name || 'resume' })
+        })
+        if (!r.ok) throw new Error(await r.text())
+        const blob = await r.blob()
+        const next = URL.createObjectURL(blob)
+        if (cancelled) { URL.revokeObjectURL(next); return }
+        setUrl(prev => { oldUrl = prev; return next })
+        setState('PDF preview is live. This is the generated PDF, not a CSS impersonation.')
+        if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 500)
+      } catch (e) {
+        if (!cancelled) setState(`PDF preview failed: ${e.message || e}`)
+      }
+    }, 2000)
+    return () => { cancelled = true; clearTimeout(handle) }
+  }, [JSON.stringify(data), template])
+  return <div className="pdf-preview-shell">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
+      <span>{state}</span>
+      <div className="flex gap-2"><button className="btn" onClick={() => downloadResume(data, template, 'docx')}>Download DOCX</button><button className="btn" onClick={() => downloadResume(data, template, 'pdf')}>Download PDF</button></div>
+    </div>
+    {url ? <iframe className="pdf-preview-frame" title="Generated PDF resume preview" src={url} /> : <div className="pdf-preview-placeholder">Waiting for server-generated PDF. Patience, unfortunately.</div>}
+  </div>
+}
 
 function defaultLetter(kind, resume) {
   const c = resume?.data?.contact || {}
@@ -274,7 +237,7 @@ function LetterEditor({ doc, setDoc, refresh, resumes }) {
   return <div className="grid gap-6 xl:grid-cols-[520px_1fr]"><section className="glass max-h-[calc(100vh-130px)] overflow-auto p-5 scrollbar"><div className="mb-4 flex flex-wrap gap-2"><button className="btn btn-primary" onClick={save}><Save className="mr-1 inline h-4 w-4" />Save</button><a className="btn" href={`/api/documents/${doc.id}/export/docx`}><Download className="mr-1 inline h-4 w-4" />Word</a><a className="btn" href={`/api/documents/${doc.id}/export/pdf`}>PDF</a><button className="btn" onClick={() => setDoc(null)}>Back</button><button className="btn" onClick={remove}><Trash2 className="mr-1 inline h-4 w-4" />Delete</button></div><Input label="Document title" v={doc.title} on={v => setDoc({ ...doc, title: v })} /><label className="mb-2 block text-sm text-slate-400">Letter content<textarea className="input mt-1 h-[620px] whitespace-pre-wrap font-mono text-sm" value={content} onChange={e => setContent(e.target.value)} /></label></section><section className="overflow-auto scrollbar"><LetterPreview content={content} /></section></div>
 }
 function LetterPreview({ content }) { return <article className="letter-page"><div className="whitespace-pre-wrap text-[15px] leading-7 text-gray-900">{content}</div></article> }
-function RoleBuilder({ setCurrent, setPage }) { const [roles, setRoles] = useState({}), [title, setTitle] = useState('Senior Network Administrator'), [industry, setIndustry] = useState('Information Technology'), [built, setBuilt] = useState(null); useEffect(() => { api('/roles').then(setRoles) }, []); async function build() { setBuilt(await api('/role-build', { method: 'POST', body: JSON.stringify({ title, industry }) })) } async function saveDraft() { const r = await api('/resumes', { method: 'POST', body: JSON.stringify({ name: `${title} Draft`, title, template: 'modern', data: built.resume }) }); setCurrent(r); setPage('editor') } return <div className="grid gap-6 lg:grid-cols-[420px_1fr]"><section className="glass p-6"><h2 className="text-2xl font-black">Position / Role Builder</h2><Input label="Target industry" v={industry} on={setIndustry} /><Input label="Selected title" v={title} on={setTitle} /><button className="btn btn-primary mt-2" onClick={build}>Build Resume Draft</button><div className="mt-4 max-h-[560px] overflow-auto scrollbar">{Object.entries(roles).map(([cat, rs]) => <div key={cat} className="mb-4"><h3 className="font-bold text-orange-300">{cat}</h3>{rs.map(r => <button key={r.title} onClick={() => setTitle(r.title)} className="mb-1 mr-1 rounded-full border border-white/10 px-3 py-1 text-sm hover:border-orange-400">{r.below_target ? '⚠ ' : ''}{r.title}</button>)}</div>)}</div></section><section>{built && <><div className="mb-4 flex justify-end"><button className="btn btn-primary" onClick={saveDraft}>Save Draft & Edit</button></div><ResumePreview data={built.resume} setData={() => { }} template="modern" /></>}</section></div> }
+function RoleBuilder({ setCurrent, setPage }) { const [roles, setRoles] = useState({}), [title, setTitle] = useState('Senior Network Administrator'), [industry, setIndustry] = useState('Information Technology'), [built, setBuilt] = useState(null); useEffect(() => { api('/roles').then(setRoles) }, []); async function build() { setBuilt(await api('/role-build', { method: 'POST', body: JSON.stringify({ title, industry }) })) } async function saveDraft() { const r = await api('/resumes', { method: 'POST', body: JSON.stringify({ name: `${title} Draft`, title, template: 'modern', data: built.resume }) }); setCurrent(r); setPage('editor') } return <div className="grid gap-6 lg:grid-cols-[420px_1fr]"><section className="glass p-6"><h2 className="text-2xl font-black">Position / Role Builder</h2><Input label="Target industry" v={industry} on={setIndustry} /><Input label="Selected title" v={title} on={setTitle} /><button className="btn btn-primary mt-2" onClick={build}>Build Resume Draft</button><div className="mt-4 max-h-[560px] overflow-auto scrollbar">{Object.entries(roles).map(([cat, rs]) => <div key={cat} className="mb-4"><h3 className="font-bold text-orange-300">{cat}</h3>{rs.map(r => <button key={r.title} onClick={() => setTitle(r.title)} className="mb-1 mr-1 rounded-full border border-white/10 px-3 py-1 text-sm hover:border-orange-400">{r.below_target ? '⚠ ' : ''}{r.title}</button>)}</div>)}</div></section><section>{built && <><div className="mb-4 flex justify-end"><button className="btn btn-primary" onClick={saveDraft}>Save Draft & Edit</button></div><PdfPreview data={built.resume} template="modern" /></>}</section></div> }
 function Builder({ title, icon: Icon, children }) { return <div className="glass mx-auto max-w-4xl p-6"><h2 className="text-3xl font-black"><Icon className="mr-2 inline h-7 w-7 text-orange-400" />{title}</h2><div className="mt-5">{children}</div></div> }
 function DocEditor({ doc }) { const [content, setContent] = useState(doc.data.content); return <div className="mt-5"><textarea className="input h-96 whitespace-pre-wrap" value={content} onChange={e => setContent(e.target.value)} /><div className="mt-3 flex gap-2"><button className="btn">Editable Draft</button><button className="btn" onClick={() => navigator.clipboard.writeText(content)}>Copy</button></div></div> }
 
