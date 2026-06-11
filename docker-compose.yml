@@ -1,0 +1,14 @@
+services:
+  resume-builder:
+    build: .
+    container_name: resume-builder
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    env_file:
+      - .env
+    volumes:
+      - resume-builder-data:/data
+
+volumes:
+  resume-builder-data:

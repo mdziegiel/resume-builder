@@ -1,0 +1,11 @@
+node_modules
+dist
+__pycache__
+*.pyc
+.env
+*.sqlite
+*.sqlite-*
+.venv
+uploads/*
+!uploads/.gitkeep
+.DS_Store
