@@ -95,18 +95,28 @@ def health():
         }
 
 def normalize_resume_data(data: dict[str, Any]) -> dict[str, Any]:
-    data = json.loads(json.dumps(data))
-    rows = []
-    for row in data.get('skills', []):
+    data = json.loads(json.dumps(data or {}))
+    raw_skills = data.get('skills', [])
+    if isinstance(raw_skills, dict):
+        raw_skills = list(raw_skills.values())
+    elif not isinstance(raw_skills, list):
+        raw_skills = [raw_skills]
+    skill_cells: list[str] = []
+    for row in raw_skills:
         if isinstance(row, dict):
-            cells = row.get('items') or [row.get('a', ''), row.get('b', ''), row.get('c', '')]
+            items = row.get('items')
+            if isinstance(items, list):
+                cells = items
+            elif isinstance(items, str):
+                cells = re.split(r'[|,;•\n]', items)
+            else:
+                cells = [row.get('a', ''), row.get('b', ''), row.get('c', ''), row.get('name', ''), row.get('label', ''), row.get('value', '')]
         elif isinstance(row, str):
-            cells = [x.strip() for x in re.split(r'\s*\|\s*', row)]
+            cells = re.split(r'[|,;•\n]', row)
         else:
             cells = list(row) if isinstance(row, (list, tuple)) else []
-        cells = [str(x).strip() for x in cells if str(x).strip()]
-        rows.append((cells + ['', '', ''])[:3])
-    data['skills'] = rows
+        skill_cells.extend([str(x).strip() for x in cells if str(x).strip()])
+    data['skills'] = [(skill_cells[i:i+3] + ['', '', ''])[:3] for i in range(0, len(skill_cells), 3)]
     for job in data.get('experience', []):
         if 'start_date' not in job or 'end_date' not in job:
             dates = job.get('dates', '')
@@ -405,26 +415,35 @@ def resume_context(resume_id: Optional[int]) -> dict[str, Any]:
     }
 
 def professional_letter_prompt(kind: str, details: dict[str, Any], sender_name: str, sender_contact: str, context: dict[str, Any]) -> str:
-    level_hint = 'senior/executive-level, polished, confident, and commercially mature; assume compensation expectations may be $115k+ when the role appears senior'
+    level_hint = 'senior/executive-level, polished, confident, commercially mature, and appropriate for roles at or above $115k when the job description implies senior scope'
+    shared_rules = """Quality bar:
+- Produce a final, ready-to-send business letter, not advice, notes, markdown, bullets, or a template.
+- Use proper US business letter format: sender block, date, recipient/company line when available, salutation, body, professional closing, sender name.
+- Write 3-4 strong paragraphs after the salutation. Each paragraph must have a clear job-specific purpose.
+- Use company, role, job-description language, interview details, and linked-resume evidence when provided.
+- Pull specific achievements, skills, certifications, technologies, leadership scope, operating environments, and measurable outcomes from the linked resume context. Do not invent numbers; if metrics are missing, describe impact credibly without fake statistics.
+- Avoid generic phrases such as "dynamic professional," "proven track record," "I am excited to apply," and "perfect fit." Sound like a senior professional who has actually done the work.
+- If information is missing, write around it naturally instead of leaving bracket placeholders, except for a truly unavailable recipient address line.
+- Return only the finished letter text."""
     if kind == 'cover_letter':
-        task = """Write a finished cover letter in proper US business letter format.
-Required structure:
-1. Sender name/contact, date, company line, and salutation.
-2. Strong opening naming the company and role, with a specific reason this opportunity fits.
-3. Two body paragraphs that connect the job description to concrete resume achievements, technologies, leadership scope, operational impact, metrics when provided, and business outcomes.
-4. Compelling close requesting a conversation.
-Constraints: 3-4 substantial paragraphs after the salutation, no generic filler, no bracket placeholders unless information is truly missing, no bullets, no markdown. Return only the letter."""
+        task = """Specific cover-letter structure:
+1. Opening: name the company and target role if supplied, state a crisp value proposition tied to the job description, and show informed interest in the organization or problem space.
+2. Body paragraph 1: map the most relevant resume achievements and skills to the employer's stated needs.
+3. Body paragraph 2: reinforce seniority with leadership, operational judgment, stakeholder management, security/risk, scale, business outcomes, or technical depth as applicable.
+4. Closing: confident request for a conversation and concise statement of the value the candidate would bring."""
     else:
-        task = """Write a finished post-interview thank-you letter in proper professional letter format.
-Required structure:
-1. Sender name/contact, date, and salutation.
-2. Warm opening thanking the interviewer for the specific role/company conversation.
-3. One or two body paragraphs that reference the talking points, connect them to specific resume achievements/skills, and reinforce business value.
-4. Concise close reaffirming interest and next-step enthusiasm.
-Constraints: 3-4 polished paragraphs after the salutation, no generic filler, no bracket placeholders unless information is truly missing, no bullets, no markdown. Return only the letter."""
-    return f"""You are an elite executive resume writer and career strategist. {task}
+        task = """Specific thank-you-letter structure:
+1. Opening: thank the interviewer by name when supplied and reference the company, role, and interview date/context.
+2. Body paragraph 1: mention the provided talking points and connect them to relevant resume achievements or skills.
+3. Body paragraph 2: reinforce fit, senior judgment, and near-term business value based on what was discussed.
+4. Closing: reaffirm interest, appreciation, and readiness for next steps without sounding needy or generic."""
+    return f"""You are an elite executive resume writer and career strategist.
 
-Tone: {level_hint}. Use precise, credible language. Avoid phrases like "I am excited" unless it is earned by specifics. Do not sound like a template.
+Tone: {level_hint}. Be specific, concise, polished, and credible.
+
+{shared_rules}
+
+{task}
 
 Sender name: {sender_name or '[Your Name]'}
 Sender contact: {sender_contact or '[Email] | [Phone] | [Location]'}

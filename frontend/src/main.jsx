@@ -19,20 +19,27 @@ const safe = (v) => String(v || '').replace(/<[^>]+>/g, '')
 const cloneBlankResume = () => structuredClone(blankResume)
 const normalizeSkillRows = (skills) => {
   if (!skills) return []
-  const source = Array.isArray(skills) ? skills : [skills]
-  return source.map(row => {
-    if (Array.isArray(row)) return row
-    if (typeof row === 'string') return row.split(/[|,;•]/)
-    if (row && typeof row === 'object') return row.items || [row.a, row.b, row.c]
-    return []
-  }).map(row => row.map(x => String(x || '').trim()).filter(Boolean))
-    .filter(row => row.length)
-    .map(row => row.concat(['', '', '']).slice(0, 3))
+  const source = Array.isArray(skills) ? skills : Object.values(skills)
+  const cells = []
+  source.forEach(row => {
+    let values = []
+    if (Array.isArray(row)) values = row
+    else if (typeof row === 'string') values = row.split(/[|,;•\n]/)
+    else if (row && typeof row === 'object') {
+      if (Array.isArray(row.items)) values = row.items
+      else if (typeof row.items === 'string') values = row.items.split(/[|,;•\n]/)
+      else values = [row.a, row.b, row.c, row.name, row.label, row.value]
+    }
+    cells.push(...values.map(x => String(x || '').trim()).filter(Boolean))
+  })
+  const rows = []
+  for (let i = 0; i < cells.length; i += 3) rows.push(cells.slice(i, i + 3).concat(['', '', '']).slice(0, 3))
+  return rows
 }
 const isBlankResumeData = (data) => JSON.stringify(data || {}) === JSON.stringify(blankResume)
 
 function App() {
-  const [page, setPage] = useState('dashboard')
+  const [page, setPage] = useState('editor')
   const [resumes, setResumes] = useState([])
   const [current, setCurrent] = useState(null)
   const load = () => api('/resumes').then(r => { setResumes(r); if (current && !r.find(x => x.id === current.id)) setCurrent(null) })
@@ -79,7 +86,7 @@ function NeedResume() { return <div className="glass p-8 text-center text-slate-
 function EmptyEditor({ setCurrent, setPage, reload }) { return <TemplatePicker setCurrent={setCurrent} setPage={setPage} reload={reload} /> }
 
 function TemplatePicker({ setCurrent, setPage, reload }) {
-  function create(template) { setCurrent({ id: null, name: 'Untitled Resume', title: 'Resume', template, data: cloneBlankResume(), isDraft: true }); setPage('editor') }
+  function create(template) { setCurrent({ id: null, name: '', title: '', template, data: cloneBlankResume(), isDraft: true }); setPage('editor') }
   return <div className="glass p-6"><div className="mb-6 flex items-center justify-between"><div><h2 className="text-3xl font-black">Blank Resume — choose a template</h2><p className="text-slate-400">Starts completely blank. Nothing is saved until you hit Save. Radical concept.</p></div><button className="btn" onClick={() => setPage('dashboard')}>Back to Dashboard</button></div><div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">{templates.map(t => <button key={t} onClick={() => create(t)} className="glass p-4 text-left hover:border-orange-400"><div className="mb-3 text-xs uppercase tracking-[.2em] text-orange-300">{t}</div><div className={`template-thumb resume-${t}`}><div className="thumb-header"></div><div className="thumb-line w-4/5"></div><div className="thumb-line w-3/5"></div><div className="thumb-section"></div><div className="thumb-line"></div><div className="thumb-line w-5/6"></div><div className="thumb-section"></div><div className="thumb-line w-4/6"></div></div></button>)}</div></div>
 }
 
@@ -138,17 +145,29 @@ function CustomSections({ data, setData }) { const sections = data.custom_sectio
 
 function Editable({ children, onSave, className = '', tag: Tag = 'span' }) { return <Tag className={className} contentEditable suppressContentEditableWarning onBlur={e => onSave(safe(e.currentTarget.innerHTML))}>{children}</Tag> }
 function ResumePreview({ data, setData, template }) {
-  const c = data.contact || {}; const two = template === 'two-column'; const ats = template === 'ats-optimized'
+  const c = data.contact || {}
+  const ats = template === 'ats-optimized'
   const setContact = (k, v) => setData({ ...data, contact: { ...data.contact, [k]: v } })
   const setSummary = v => setData({ ...data, summary: v })
-  const setBullet = (i, j, v) => { const experience = [...data.experience]; experience[i].bullets[j] = v; setData({ ...data, experience }) }
+  const setBullet = (i, j, v) => { const experience = [...(data.experience || [])]; experience[i].bullets[j] = v; setData({ ...data, experience }) }
   const skillRows = normalizeSkillRows(data.skills)
-  const skillText = skillRows.flat().filter(Boolean).join(' • ')
-  const content = <><H template={template}>Professional Summary</H><Editable tag="p" onSave={setSummary}>{safe(data.summary)}</Editable>{skillRows.length > 0 && <><H template={template}>Areas of Expertise</H>{ats ? <p>{skillText}</p> : <table className="skill-table w-full border-collapse text-sm"><tbody>{skillRows.map((r, i) => <tr key={i}>{[0, 1, 2].map(n => <td className="p-2" key={n}>{r[n] || ''}</td>)}</tr>)}</tbody></table>}</>}<H template={template}>Technical Proficiencies</H>{Object.entries(data.technical || {}).map(([k, v]) => <p key={k} className="text-sm"><b>{k}:</b> {v}</p>)}<H template={template}>Career Experience</H>{(data.experience || []).map((j, i) => <div key={i} className="mb-4"><div className="flex justify-between gap-4 font-bold"><span>{j.title} — {j.company}, {j.location}</span><span>{j.dates}</span></div><ul className="ml-5 list-disc text-sm">{(j.bullets || []).map((b, n) => <li key={n}><Editable onSave={v => setBullet(i, n, v)}>{safe(b)}</Editable></li>)}</ul></div>)}<H template={template}>Education</H>{(data.education || []).map((e, i) => <p key={i}><b>{e.degree}</b>, {e.school} — {e.details}</p>)}<H template={template}>Certifications</H><p>{(data.certifications || []).join(' • ')}</p><H template={template}>Additional Experience</H>{(data.additional || []).map((a, i) => <p key={i}>{a}</p>)}{(data.custom_sections || []).map((s, i) => <div key={i}><H template={template}>{s.title}</H><ul className="ml-5 list-disc">{(s.bullets || []).map((b, n) => <li key={n}>{b}</li>)}</ul></div>)}</>
-  if (two) return <div className={`resume-page resume-${template} grid grid-cols-[250px_1fr] gap-8`}><aside className="bg-slate-900 p-5 text-white"><h1 className="text-3xl font-black">{c.name}</h1><p>{c.title}</p><H template={template}>Contact</H><p>{c.email}</p><p>{c.phone}</p><p>{c.location}</p><H template={template}>Skills</H><p>{skillText}</p><H template={template}>Certifications</H><p>{(data.certifications || []).join(' • ')}</p></aside><main>{content}</main></div>
-  return <div className={`resume-page resume-${template}`}><div className="resume-header grid grid-cols-[1fr_auto] gap-6 pb-5"><div><Editable tag="h1" className="text-4xl font-black uppercase tracking-tight" onSave={v => setContact('name', v)}>{c.name || ''}</Editable><Editable tag="p" className="mt-1 block text-lg font-semibold text-gray-700" onSave={v => setContact('title', v)}>{c.title || ''}</Editable></div><div className="text-right text-sm text-gray-700"><p>{c.email}</p><p>{c.phone}</p><p>{c.location}</p><p>{c.linkedin}</p><p>{c.portfolio}</p></div></div>{content}</div>
+  const skillText = skillRows.flat().filter(Boolean).join(ats ? ' - ' : ' • ')
+  const contactLine = [c.email, c.phone, c.location, c.linkedin, c.portfolio].filter(Boolean).join(' • ')
+  const contactBlock = <div className="resume-contact"><p>{c.email}</p><p>{c.phone}</p><p>{c.location}</p><p>{c.linkedin}</p><p>{c.portfolio}</p></div>
+  const SectionHeading = ({ children }) => <H template={template}>{children}</H>
+  const SkillsBlock = () => skillRows.length > 0 && <><SectionHeading>Areas of Expertise</SectionHeading>{ats ? <p>{skillText}</p> : <table className="skill-table w-full border-collapse text-sm"><tbody>{skillRows.map((r, i) => <tr key={i}>{[0, 1, 2].map(n => <td className="p-2" key={n}>{r[n] || ''}</td>)}</tr>)}</tbody></table>}</>
+  const TechnicalBlock = () => Object.entries(data.technical || {}).filter(([, v]) => String(v || '').trim()).length > 0 && <><SectionHeading>Technical Proficiencies</SectionHeading>{Object.entries(data.technical || {}).map(([k, v]) => String(v || '').trim() && <p key={k} className="text-sm"><b>{k}:</b> {v}</p>)}</>
+  const ExperienceBlock = () => (data.experience || []).length > 0 && <><SectionHeading>Career Experience</SectionHeading>{(data.experience || []).map((j, i) => <div key={i} className="experience-entry mb-4"><div className="job-line flex justify-between gap-4 font-bold"><span>{[j.title, j.company, j.location].filter(Boolean).join(' — ')}</span><span>{j.dates}</span></div><ul className="ml-5 list-disc text-sm">{(j.bullets || []).filter(Boolean).map((b, n) => <li key={n}><Editable onSave={v => setBullet(i, n, v)}>{safe(b)}</Editable></li>)}</ul></div>)}</>
+  const EducationBlock = () => (data.education || []).length > 0 && <><SectionHeading>Education</SectionHeading>{(data.education || []).map((e, i) => <p key={i}><b>{e.degree}</b>{e.school ? `, ${e.school}` : ''}{e.details ? ` — ${e.details}` : ''}</p>)}</>
+  const CertBlock = () => (data.certifications || []).filter(Boolean).length > 0 && <><SectionHeading>Certifications</SectionHeading><p>{(data.certifications || []).filter(Boolean).join(' • ')}</p></>
+  const AdditionalBlock = () => (data.additional || []).filter(Boolean).length > 0 && <><SectionHeading>Additional Experience</SectionHeading>{(data.additional || []).filter(Boolean).map((a, i) => <p key={i}>{a}</p>)}</>
+  const CustomBlock = () => (data.custom_sections || []).map((s, i) => (s.title || (s.bullets || []).some(Boolean)) && <div key={i}><SectionHeading>{s.title}</SectionHeading><ul className="ml-5 list-disc">{(s.bullets || []).filter(Boolean).map((b, n) => <li key={n}>{b}</li>)}</ul></div>)
+  const MainContent = ({ includeSkills = true, includeTechnical = true, includeCerts = true }) => <main className="resume-main"><SectionHeading>Professional Summary</SectionHeading><Editable tag="p" onSave={setSummary}>{safe(data.summary)}</Editable>{includeSkills && <SkillsBlock />}{includeTechnical && <TechnicalBlock />}<ExperienceBlock /><EducationBlock />{includeCerts && <CertBlock />}<AdditionalBlock /><CustomBlock /></main>
+  if (template === 'technical') return <div className="resume-page resume-technical resume-sidebar-layout"><aside className="resume-sidebar"><Editable tag="h1" onSave={v => setContact('name', v)}>{c.name || ''}</Editable><Editable tag="p" className="sidebar-title" onSave={v => setContact('title', v)}>{c.title || ''}</Editable><H template={template}>Contact</H>{contactBlock}<SkillsBlock /><TechnicalBlock /><CertBlock /></aside><MainContent includeSkills={false} includeTechnical={false} includeCerts={false} /></div>
+  if (template === 'two-column') return <div className="resume-page resume-two-column resume-sidebar-layout"><aside className="resume-sidebar"><Editable tag="h1" onSave={v => setContact('name', v)}>{c.name || ''}</Editable><Editable tag="p" className="sidebar-title" onSave={v => setContact('title', v)}>{c.title || ''}</Editable><H template={template}>Contact</H>{contactBlock}<SkillsBlock /><CertBlock /></aside><MainContent includeSkills={false} includeCerts={false} /></div>
+  return <div className={`resume-page resume-${template}`}><header className="resume-header"><div className="resume-identity"><Editable tag="h1" onSave={v => setContact('name', v)}>{c.name || ''}</Editable><Editable tag="p" className="resume-title" onSave={v => setContact('title', v)}>{c.title || ''}</Editable></div>{template === 'modern' || template === 'minimal' || template === 'ats-optimized' ? <p className="resume-contact-line">{ats ? contactLine.replaceAll(' • ', ' - ') : contactLine}</p> : contactBlock}</header><MainContent /></div>
 }
-function H({ children, template }) { return <h2 className={`mt-5 mb-2 text-sm font-black uppercase tracking-[.18em] ${template === 'ats-optimized' ? 'text-black' : 'text-orange-600'}`}>{children}</h2> }
+function H({ children, template }) { return <h2 className={`resume-section-title ${template === 'ats-optimized' ? 'ats-heading' : ''}`}>{children}</h2> }
 
 function defaultLetter(kind, resume) {
   const c = resume?.data?.contact || {}
