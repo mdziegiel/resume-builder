@@ -78,13 +78,21 @@ UPLOAD_DIR=/data/uploads
 
 ## Screenshots
 
-Place screenshots here after first production deployment:
+### Dashboard
 
-- Dashboard
-- Resume editor with live preview
-- Job-targeted resume mode
-- Cover letter builder with AI generation, scratch templates, saved-letter loading, live printed-page preview, and Word/PDF export
-- Thank-you letter builder with AI generation, scratch templates, saved-letter loading, live printed-page preview, and Word/PDF export
+![Dashboard](screenshots/dashboard.png)
+
+### Resume editor with live preview
+
+![Resume editor with live preview](screenshots/resume-editor.png)
+
+### Cover letter builder
+
+![Cover letter builder](screenshots/cover-letter-builder.png)
+
+### Role builder
+
+![Role builder](screenshots/role-builder.png)
 
 ## Stack
 
