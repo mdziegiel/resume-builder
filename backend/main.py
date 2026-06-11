@@ -58,6 +58,22 @@ class RoleBuildIn(BaseModel):
     title: str
     industry: str = 'Information Technology'
 
+class ImportConfirmIn(BaseModel):
+    filename: str = 'Imported Resume'
+    template: str = 'modern'
+    data: dict[str, Any]
+
+class PersonalResumeIn(BaseModel):
+    title: str
+    years: str = ''
+    skills: str = ''
+    employer_role: str = ''
+    education: str = ''
+    achievements: str = ''
+    target: str = ''
+    tone: str = 'modern'
+    template: str = 'modern'
+
 @app.on_event('startup')
 def startup():
     seed()
@@ -117,7 +133,11 @@ def save_resume(payload: ResumeIn):
     with connect() as conn:
         cur = conn.execute('INSERT INTO resumes(name,title,template,data_json,created_at,updated_at) VALUES(?,?,?,?,?,?)',
                            (payload.name, payload.title, payload.template, dumps(normalize_resume_data(payload.data)), stamp, stamp))
-        return resume(cur.lastrowid)
+        resume_id = cur.lastrowid
+        if resume_id is None:
+            raise HTTPException(500, 'Resume insert failed')
+        conn.commit()
+    return resume(int(resume_id))
 
 @app.put('/api/resumes/{resume_id}')
 def update_resume(resume_id: int, payload: ResumeIn):
@@ -174,19 +194,104 @@ def extract_text_pdf(content: bytes) -> str:
     reader = PdfReader(io.BytesIO(content))
     return '\n'.join(page.extract_text() or '' for page in reader.pages)
 
-def naive_parse_resume(text: str) -> dict[str, Any]:
-    data = json.loads(json.dumps(DEFAULT_RESUME))
+SECTION_ALIASES = {
+    'summary': ['summary', 'professional summary', 'profile', 'objective'],
+    'skills': ['areas of expertise', 'skills', 'core competencies', 'expertise'],
+    'technical': ['technical proficiencies', 'technical skills', 'technologies', 'tools'],
+    'experience': ['career experience', 'professional experience', 'experience', 'employment history', 'work history'],
+    'education': ['education'],
+    'certifications': ['certifications', 'certificates', 'licenses'],
+    'additional': ['additional experience', 'additional information', 'projects']
+}
+
+def section_key(line: str) -> Optional[str]:
+    clean = re.sub(r'[^a-zA-Z ]', '', line).strip().lower()
+    for key, names in SECTION_ALIASES.items():
+        if clean in names:
+            return key
+    return None
+
+def split_sections(lines: list[str]) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {'header': []}
+    current = 'header'
+    for line in lines:
+        key = section_key(line)
+        if key:
+            current = key
+            sections.setdefault(current, [])
+        else:
+            sections.setdefault(current, []).append(line)
+    return sections
+
+def bullet_lines(lines: list[str]) -> list[str]:
+    out = []
+    for line in lines:
+        clean = re.sub(r'^[•\-*\u2022\s]+', '', line).strip()
+        if clean:
+            out.append(clean)
+    return out
+
+def parse_resume_text(text: str) -> dict[str, Any]:
+    data = {'contact': {'name': '', 'title': '', 'email': '', 'phone': '', 'linkedin': '', 'portfolio': '', 'location': ''}, 'summary': '', 'skills': [], 'technical': {}, 'experience': [], 'education': [], 'certifications': [], 'additional': [], 'custom_sections': []}
+    lines = [re.sub(r'\s+', ' ', l).strip() for l in text.splitlines() if l.strip()]
+    sections = split_sections(lines)
+    header = sections.get('header', [])[:8]
     email = re.search(r'[\w.+-]+@[\w.-]+', text)
     phone = re.search(r'(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}', text)
+    linkedin = re.search(r'https?://(?:www\.)?linkedin\.com/\S+|linkedin\.com/\S+', text, re.I)
+    urls = re.findall(r'https?://\S+', text)
+    if header:
+        data['contact']['name'] = header[0][:100]
+    if len(header) > 1 and not section_key(header[1]):
+        data['contact']['title'] = header[1][:140]
     if email: data['contact']['email'] = email.group(0)
     if phone: data['contact']['phone'] = phone.group(0)
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
-    if lines:
-        data['contact']['name'] = lines[0][:80]
-    data['summary'] = ' '.join(lines[1:5])[:900] or data['summary']
-    data['additional'].append('Imported resume text preserved in source_text for manual cleanup.')
-    data['source_text'] = text[:12000]
-    return data
+    if linkedin: data['contact']['linkedin'] = linkedin.group(0)
+    for u in urls:
+        if 'linkedin' not in u.lower():
+            data['contact']['portfolio'] = u; break
+    if len(header) > 2:
+        maybe_location = [h for h in header if re.search(r'\b[A-Z]{2}\b|,', h) and '@' not in h and not re.search(r'\d{3}', h)]
+        if maybe_location: data['contact']['location'] = maybe_location[-1][:100]
+    summary_lines = sections.get('summary') or [l for l in header[2:] if '@' not in l and not re.search(r'\d{3}', l)]
+    data['summary'] = ' '.join(summary_lines).strip()[:1200]
+    skills = bullet_lines(sections.get('skills', []))
+    if skills:
+        cells = []
+        for line in skills:
+            cells += [x.strip() for x in re.split(r'[,|;•]', line) if x.strip()]
+        data['skills'] = [(cells[i:i+3] + ['', '', ''])[:3] for i in range(0, len(cells), 3)]
+    tech_lines = sections.get('technical', [])
+    for line in tech_lines:
+        if ':' in line:
+            k, v = line.split(':', 1); data['technical'][k.strip()] = v.strip()
+        else:
+            data['technical'].setdefault('Tools', '')
+            data['technical']['Tools'] = (data['technical']['Tools'] + ', ' + line).strip(', ')
+    exp_lines = sections.get('experience', [])
+    current_job = None
+    for line in exp_lines:
+        is_bullet = re.match(r'^[•\-*\u2022]', line) or len(line) > 95
+        date_match = re.search(r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|March|April|June|July|August|September|October|November|December)?\s*\d{4})\s*[–-]\s*((?:Present|Current|\w+\s+)?\d{4}|Present|Current)', line, re.I)
+        if not is_bullet and (date_match or len(line.split()) <= 12):
+            if current_job: data['experience'].append(current_job)
+            current_job = {'title': line, 'company': '', 'location': '', 'dates': date_match.group(0) if date_match else '', 'bullets': []}
+        elif current_job:
+            current_job['bullets'].append(re.sub(r'^[•\-*\u2022\s]+', '', line))
+    if current_job: data['experience'].append(current_job)
+    data['education'] = [{'degree': line, 'school': '', 'details': ''} for line in sections.get('education', [])]
+    data['certifications'] = bullet_lines(sections.get('certifications', []))
+    data['additional'] = bullet_lines(sections.get('additional', []))
+    data['source_text'] = text[:20000]
+    return normalize_resume_data(data)
+
+def naive_parse_resume(text: str) -> dict[str, Any]:
+    parsed = parse_resume_text(text)
+    if not parsed['summary'] and not parsed['skills'] and not parsed['experience']:
+        fallback = json.loads(json.dumps(DEFAULT_RESUME))
+        fallback['source_text'] = text[:20000]
+        return normalize_resume_data(fallback)
+    return parsed
 
 @app.post('/api/upload')
 async def upload(file: UploadFile = File(...)):
@@ -198,8 +303,14 @@ async def upload(file: UploadFile = File(...)):
     path = UPLOAD_DIR / (file.filename or 'resume-upload')
     path.write_bytes(content)
     parsed = naive_parse_resume(text)
-    payload = ResumeIn(name=f'Imported - {parsed["contact"].get("name", "Resume")}', title=parsed['contact'].get('title', 'Resume'), template='modern', data=parsed)
-    return save_resume(payload)
+    return {'filename': file.filename or 'resume-upload', 'original_text': text[:30000], 'parsed': parsed}
+
+@app.post('/api/import-confirm')
+def import_confirm(payload: ImportConfirmIn):
+    data = normalize_resume_data(payload.data)
+    name = data.get('contact', {}).get('name') or Path(payload.filename).stem or 'Imported Resume'
+    title = data.get('contact', {}).get('title') or 'Imported Resume'
+    return save_resume(ResumeIn(name=f'Imported - {name}', title=title, template=payload.template, data=data))
 
 def keywords(text: str) -> set[str]:
     words = re.findall(r'\b[A-Za-z][A-Za-z0-9+#.-]{2,}\b', text.lower())
@@ -241,6 +352,44 @@ def role_build(payload: RoleBuildIn):
     base['contact']['title'] = payload.title
     base['summary'] = generated or f'Experienced professional targeting {payload.title} roles in {payload.industry}, with strengths in operational reliability, stakeholder support, documentation, process improvement, and secure technology delivery.'
     return {'resume': base, 'raw_generation': generated}
+
+def extract_json_object(text: str) -> Optional[dict[str, Any]]:
+    if not text:
+        return None
+    start = text.find('{'); end = text.rfind('}')
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        return json.loads(text[start:end+1])
+    except Exception:
+        return None
+
+def fallback_personal_resume(payload: PersonalResumeIn) -> dict[str, Any]:
+    skill_cells = [x.strip() for x in re.split(r'[,;\n]', payload.skills) if x.strip()]
+    achievement_cells = [x.strip() for x in re.split(r'\n|;', payload.achievements) if x.strip()]
+    education = [{'degree': payload.education or 'Education details to be completed', 'school': '', 'details': ''}]
+    employer = payload.employer_role or 'Most Recent Employer / Role'
+    return normalize_resume_data({
+        'contact': {'name': '', 'title': payload.title, 'email': '', 'phone': '', 'linkedin': '', 'portfolio': '', 'location': ''},
+        'summary': f"{payload.tone.title()} professional with {payload.years or 'relevant'} years of experience targeting {payload.target or payload.title} roles. Background includes {payload.skills or 'core role-aligned skills'}, measurable execution, stakeholder support, and disciplined documentation.",
+        'skills': [(skill_cells[i:i+3] + ['', '', ''])[:3] for i in range(0, max(len(skill_cells), 1), 3)] or [['Leadership', 'Operations', 'Communication']],
+        'technical': {'Core Skills': payload.skills or 'Add key tools and technologies', 'Target Role': payload.target or payload.title, 'Tone': payload.tone},
+        'experience': [{'title': payload.title, 'company': employer, 'location': '', 'dates': '', 'bullets': achievement_cells or ['Delivered role-aligned work improving reliability, service quality, and business outcomes.', 'Partnered with stakeholders to document requirements, resolve issues, and execute priorities.', 'Applied relevant tools and processes to complete projects accurately and efficiently.']}],
+        'education': education,
+        'certifications': [],
+        'additional': [],
+        'custom_sections': [{'title': 'Selected Projects', 'bullets': achievement_cells[:4]}] if achievement_cells else []
+    })
+
+@app.post('/api/build-from-description')
+def build_from_description(payload: PersonalResumeIn):
+    prompt = '''Create a complete professional resume JSON from this intake. Return ONLY JSON matching this schema:
+{"contact":{"name":"","title":"","email":"","phone":"","linkedin":"","portfolio":"","location":""},"summary":"","skills":[["","",""]],"technical":{"Category":"items"},"experience":[{"title":"","company":"","location":"","dates":"","bullets":[""]}],"education":[{"degree":"","school":"","details":""}],"certifications":[],"additional":[],"custom_sections":[{"title":"","bullets":[""]}]}
+Make it specific, premium, truthful to the intake, and optimized for the target role.''' + '\nINTAKE:\n' + payload.model_dump_json()
+    generated = claude(prompt)
+    parsed = extract_json_object(generated or '')
+    resume_data = normalize_resume_data(parsed) if parsed else fallback_personal_resume(payload)
+    return save_resume(ResumeIn(name=f"{payload.title or 'AI'} Resume Draft", title=payload.title or 'Resume Draft', template=payload.template, data=resume_data))
 
 def render_text(data):
     c = data['contact']

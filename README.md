@@ -9,6 +9,9 @@ A professional, self-hosted resume and career document builder for creating port
 - Clean two-column resume header layout
 - Professional summary, three-column expertise table, technical proficiencies, career experience, education, certifications, and additional experience
 - Blank dashboard by default, with an optional Load Sample Resume action
+- Resume Builder route opens a template picker when no resume is active, then opens the side-by-side editor and preview
+- Upload review flow with original extracted text beside parsed resume preview before saving
+- Build from Description intake form for personalized Claude-assisted resume generation
 - Delete saved resume versions from the dashboard with confirmation
 - Eight resume templates: Classic, Modern, Executive, Technical, Minimal, Two-Column, Corporate, ATS-Optimized
 - Rich text editing for summaries and bullets, including bold/italic support
