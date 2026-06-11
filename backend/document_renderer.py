@@ -514,9 +514,9 @@ def pdf_bytes(data: dict[str, Any], template: str) -> bytes:
     template = template if template in TEMPLATE_IDS else 'modern'
     data = merge_resume_data(data)
     buf = io.BytesIO()
-    margins = 0.55 * inch
+    margins = 0.42 * inch
     if template == 'minimal':
-        margins = 0.78 * inch
+        margins = 0.50 * inch
     doc = SimpleDocTemplate(buf, pagesize=LETTER, leftMargin=margins, rightMargin=margins, topMargin=0.45 * inch, bottomMargin=0.45 * inch)
     styles = pdf_styles(template)
     story = []
@@ -612,10 +612,10 @@ def pdf_body(data: dict[str, Any], template: str, styles: dict[str, ParagraphSty
         elif template in ('two-column',):
             story.append(chip_table([x for row in data['skills'] for x in row if x], '#e2e8f0'))
         else:
-            skill_style = ParagraphStyle('skillnowrap', parent=styles['body'], fontSize=7.6, leading=9.0, splitLongWords=False, wordWrap=None)
+            skill_style = ParagraphStyle('skillwrap', parent=styles['body'], fontSize=7.4, leading=8.8, splitLongWords=True)
             rows = [[P(c, skill_style) for c in row] for row in data['skills']]
-            t = Table(rows, colWidths=[2.43 * inch, 2.43 * inch, 2.43 * inch])
-            t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 1)]))
+            t = Table(rows, colWidths=[2.48 * inch, 2.48 * inch, 2.48 * inch])
+            t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 1)]))
             story.append(t)
     if section_visible(data, 'technical') and data.get('technical'):
         story += pdf_heading(section_title(data, 'technical'), template, styles)

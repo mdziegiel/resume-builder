@@ -1,10 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowLeft, Download, Eye, EyeOff, FileText, Plus, Save, Sparkles, Trash2, Upload, Wand2 } from 'lucide-react'
-import * as pdfjsLib from 'pdfjs-dist'
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import './index.css'
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 
 const API = '/api'
 const api = async (path, options = {}) => {
@@ -211,12 +208,11 @@ async function downloadResume(data, template, fmt) {
 }
 
 function PdfPreview({ data, template }) {
-  const [pdfData, setPdfData] = useState(null)
-  const [zoom, setZoom] = useState(1.35)
+  const [url, setUrl] = useState('')
   const [state, setState] = useState('Rendering PDF preview...')
-  const canvasRef = useRef(null)
   useEffect(() => {
     let cancelled = false
+    let oldUrl = ''
     const handle = setTimeout(async () => {
       setState('Regenerating PDF preview...')
       try {
@@ -226,53 +222,28 @@ function PdfPreview({ data, template }) {
           body: JSON.stringify({ data, template, name: data?.contact?.name || 'resume' })
         })
         if (!r.ok) throw new Error(await r.text())
-        const bytes = await r.arrayBuffer()
-        if (!cancelled) { setPdfData(bytes); setState('PDF.js canvas preview. No thumbnails. No iframe. Civilization advances slowly.') }
+        const blob = await r.blob()
+        const next = URL.createObjectURL(blob)
+        if (cancelled) { URL.revokeObjectURL(next); return }
+        setUrl(prev => { oldUrl = prev; return next })
+        setState('PDF preview is live at page-width fit. No thumbnail nonsense.')
+        if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 500)
       } catch (e) {
         if (!cancelled) setState(`PDF preview failed: ${e.message || e}`)
       }
     }, 900)
     return () => { cancelled = true; clearTimeout(handle) }
   }, [JSON.stringify(data), template])
-
-  useEffect(() => {
-    if (!pdfData || !canvasRef.current) return
-    let cancelled = false
-    const task = pdfjsLib.getDocument({ data: pdfData.slice(0) })
-    task.promise.then(async pdf => {
-      const page = await pdf.getPage(1)
-      if (cancelled) return
-      const container = canvasRef.current.parentElement
-      const baseViewport = page.getViewport({ scale: 1 })
-      const available = Math.max(820, (container?.clientWidth || 900) - 28)
-      const fitScale = available / baseViewport.width
-      const viewport = page.getViewport({ scale: fitScale * zoom })
-      const canvas = canvasRef.current
-      const context = canvas.getContext('2d')
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = Math.floor(viewport.width * dpr)
-      canvas.height = Math.floor(viewport.height * dpr)
-      canvas.style.width = `${Math.floor(viewport.width)}px`
-      canvas.style.height = `${Math.floor(viewport.height)}px`
-      context.setTransform(dpr, 0, 0, dpr, 0, 0)
-      await page.render({ canvasContext: context, viewport }).promise
-    }).catch(e => !cancelled && setState(`PDF.js render failed: ${e.message || e}`))
-    return () => { cancelled = true; task.destroy() }
-  }, [pdfData, zoom])
-
+  const frameSrc = url ? `${url}#zoom=page-width&pagemode=none&toolbar=1&navpanes=0&scrollbar=1` : ''
   return <div className="pdf-preview-shell">
-    <div className="pdf-preview-toolbar sticky top-0 z-10 mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-300">
+    <div className="pdf-preview-toolbar mb-2 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-300">
       <span>{state}</span>
       <div className="flex flex-wrap items-center gap-2">
-        <button className="btn" onClick={() => setZoom(z => Math.max(0.75, +(z - 0.15).toFixed(2)))}>−</button>
-        <span className="pdf-zoom-label">{Math.round(zoom * 100)}%</span>
-        <button className="btn" onClick={() => setZoom(z => Math.min(2.25, +(z + 0.15).toFixed(2)))}>+</button>
-        <button className="btn" onClick={() => setZoom(1.35)}>Readable</button>
         <button className="btn" onClick={() => downloadResume(data, template, 'docx')}>Download DOCX</button>
         <button className="btn" onClick={() => downloadResume(data, template, 'pdf')}>Download PDF</button>
       </div>
     </div>
-    <div className="pdf-canvas-stage">{pdfData ? <canvas ref={canvasRef} className="pdf-preview-canvas" /> : <div className="pdf-preview-placeholder">Waiting for server-generated PDF. Patience, unfortunately.</div>}</div>
+    {url ? <iframe className="pdf-preview-frame" title="Generated PDF resume preview" src={frameSrc} /> : <div className="pdf-preview-placeholder">Waiting for server-generated PDF. Patience, unfortunately.</div>}
   </div>
 }
 
