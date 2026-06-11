@@ -140,7 +140,7 @@ function Editor({ resume, setResume, setPage, reload }) {
       <CustomSections data={data} setData={setData} />
       <Section title="Job-targeted resume mode"><textarea className="input h-32" placeholder="Paste job description" value={job} onChange={e => setJob(e.target.value)} /><button className="btn btn-primary mt-2" onClick={analyze}><Sparkles className="mr-1 inline h-4 w-4" />Analyze ATS Fit</button>{tailor && <div className="mt-3 rounded-xl bg-black/30 p-3"><div className="text-2xl font-black text-orange-300">ATS {tailor.ats_score}%</div><p className="mt-2 text-sm">Missing keywords: {tailor.missing_keywords.join(', ') || 'None obvious'}</p><p className="mt-2 whitespace-pre-wrap text-sm text-slate-300">{tailor.suggestions}</p></div>}</Section>
     </section>
-    <section className="overflow-auto scrollbar"><PdfPreview data={data} template={template} /></section>
+    <section className="pdf-preview-panel overflow-auto scrollbar"><PdfPreview data={data} template={template} /></section>
   </div>
 }
 function Section({ title, children }) { return <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4"><h3 className="mb-3 font-black text-orange-300">{title}</h3>{children}</div> }
@@ -176,6 +176,7 @@ async function downloadResume(data, template, fmt) {
 
 function PdfPreview({ data, template }) {
   const [url, setUrl] = useState('')
+  const [zoom, setZoom] = useState(100)
   const [state, setState] = useState('Rendering PDF preview...')
   useEffect(() => {
     let cancelled = false
@@ -201,12 +202,20 @@ function PdfPreview({ data, template }) {
     }, 2000)
     return () => { cancelled = true; clearTimeout(handle) }
   }, [JSON.stringify(data), template])
+  const frameSrc = url ? `${url}#zoom=${zoom}&toolbar=1&navpanes=0&scrollbar=1` : ''
   return <div className="pdf-preview-shell">
-    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
+    <div className="pdf-preview-toolbar mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
       <span>{state}</span>
-      <div className="flex gap-2"><button className="btn" onClick={() => downloadResume(data, template, 'docx')}>Download DOCX</button><button className="btn" onClick={() => downloadResume(data, template, 'pdf')}>Download PDF</button></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="btn" onClick={() => setZoom(z => Math.max(75, z - 25))}>−</button>
+        <span className="pdf-zoom-label">{zoom}%</span>
+        <button className="btn" onClick={() => setZoom(z => Math.min(200, z + 25))}>+</button>
+        <button className="btn" onClick={() => setZoom(100)}>100%</button>
+        <button className="btn" onClick={() => downloadResume(data, template, 'docx')}>Download DOCX</button>
+        <button className="btn" onClick={() => downloadResume(data, template, 'pdf')}>Download PDF</button>
+      </div>
     </div>
-    {url ? <iframe className="pdf-preview-frame" title="Generated PDF resume preview" src={url} /> : <div className="pdf-preview-placeholder">Waiting for server-generated PDF. Patience, unfortunately.</div>}
+    {url ? <iframe className="pdf-preview-frame" title="Generated PDF resume preview" src={frameSrc} /> : <div className="pdf-preview-placeholder">Waiting for server-generated PDF. Patience, unfortunately.</div>}
   </div>
 }
 
