@@ -31,6 +31,57 @@ DARK = '111827'
 GRAY = 'd1d5db'
 LIGHT = 'f8fafc'
 
+SECTION_DEFAULT_TITLES = {
+    'contact': 'Contact Info',
+    'summary': 'Professional Summary',
+    'skills': 'Areas of Expertise',
+    'technical': 'Technical Proficiencies',
+    'experience': 'Career Experience',
+    'education': 'Education',
+    'certifications': 'Certifications',
+    'additional': 'Additional Experience',
+}
+
+
+def section_meta(src: dict[str, Any] | None, key: str) -> dict[str, Any]:
+    meta = (src or {}).get('section_meta') or {}
+    item = meta.get(key) if isinstance(meta, dict) else {}
+    if not isinstance(item, dict):
+        item = {}
+    title = strip_html(item.get('title')) or SECTION_DEFAULT_TITLES.get(key, key.replace('_', ' ').title())
+    return {'title': title, 'hidden': bool(item.get('hidden'))}
+
+
+def apply_section_state(out: dict[str, Any], src: dict[str, Any] | None) -> dict[str, Any]:
+    out['section_meta'] = {key: section_meta(src, key) for key in SECTION_DEFAULT_TITLES}
+    for key in SECTION_DEFAULT_TITLES:
+        if out['section_meta'][key]['hidden']:
+            if key == 'contact':
+                out['contact'] = {k: '' for k in out.get('contact', {})}
+            elif key == 'summary':
+                out['summary'] = ''
+            elif key == 'technical':
+                out['technical'] = {}
+            elif key == 'skills':
+                out['skills'] = []
+            elif key == 'experience':
+                out['experience'] = []
+            elif key == 'education':
+                out['education'] = []
+            elif key == 'certifications':
+                out['certifications'] = []
+            elif key == 'additional':
+                out['additional'] = []
+    return out
+
+
+def section_visible(data: dict[str, Any], key: str) -> bool:
+    return not ((data.get('section_meta') or {}).get(key) or {}).get('hidden')
+
+
+def section_title(data: dict[str, Any], key: str) -> str:
+    return ((data.get('section_meta') or {}).get(key) or {}).get('title') or SECTION_DEFAULT_TITLES.get(key, key.replace('_', ' ').title())
+
 
 def strip_html(value: Any) -> str:
     text = re.sub(r'<\s*br\s*/?>', '\n', str(value or ''), flags=re.I)
@@ -89,7 +140,7 @@ def merge_resume_data(data: dict[str, Any] | None) -> dict[str, Any]:
         if title or bullets:
             custom.append({'title': title or 'Additional Information', 'bullets': bullets})
     out['custom_sections'] = custom
-    return out
+    return apply_section_state(out, src)
 
 
 def normalize_skill_rows(skills: Any) -> list[list[str]]:
@@ -307,35 +358,43 @@ def render_docx_single(doc: Document, data: dict[str, Any], template: str) -> No
 
 
 def render_docx_body(container, data: dict[str, Any], template: str, *, corporate_alt=False) -> None:
-    section_heading(container, 'Professional Summary', template)
-    container.add_paragraph(data['summary'])
-    section_heading(container, 'Areas of Expertise', template)
-    add_skills_table(container, data['skills'], template)
-    section_heading(container, 'Technical Proficiencies', template)
-    for k, v in data['technical'].items():
-        p = container.add_paragraph()
-        add_run(p, f'{k}: ', bold=True, font='Consolas' if template == 'technical' else None)
-        add_run(p, v, font='Consolas' if template == 'technical' else None)
-    section_heading(container, 'Career Experience', template)
-    for idx, job in enumerate(data['experience']):
-        if corporate_alt and idx % 2 == 1:
-            t = container.add_table(rows=1, cols=1)
-            cell = t.cell(0, 0)
-            shade_cell(cell, 'f9fafb')
-            cell_margins(cell, 90, 120, 80, 120)
-            render_job_docx(cell, job, template)
-        else:
-            render_job_docx(container, job, template)
-    section_heading(container, 'Education', template)
-    for e in data['education']:
-        container.add_paragraph(' — '.join(x for x in [e.get('degree'), e.get('school'), e.get('details')] if x))
-    section_heading(container, 'Certifications', template)
-    container.add_paragraph(' | '.join(data['certifications']))
-    if data.get('additional'):
-        section_heading(container, 'Additional Experience', template)
+    if section_visible(data, 'summary') and data.get('summary'):
+        section_heading(container, section_title(data, 'summary'), template)
+        container.add_paragraph(data['summary'])
+    if section_visible(data, 'skills') and data.get('skills'):
+        section_heading(container, section_title(data, 'skills'), template)
+        add_skills_table(container, data['skills'], template)
+    if section_visible(data, 'technical') and data.get('technical'):
+        section_heading(container, section_title(data, 'technical'), template)
+        for k, v in data['technical'].items():
+            p = container.add_paragraph()
+            add_run(p, f'{k}: ', bold=True, font='Consolas' if template == 'technical' else None)
+            add_run(p, v, font='Consolas' if template == 'technical' else None)
+    if section_visible(data, 'experience') and data.get('experience'):
+        section_heading(container, section_title(data, 'experience'), template)
+        for idx, job in enumerate(data['experience']):
+            if corporate_alt and idx % 2 == 1:
+                t = container.add_table(rows=1, cols=1)
+                cell = t.cell(0, 0)
+                shade_cell(cell, 'f9fafb')
+                cell_margins(cell, 90, 120, 80, 120)
+                render_job_docx(cell, job, template)
+            else:
+                render_job_docx(container, job, template)
+    if section_visible(data, 'education') and data.get('education'):
+        section_heading(container, section_title(data, 'education'), template)
+        for e in data['education']:
+            container.add_paragraph(' — '.join(x for x in [e.get('degree'), e.get('school'), e.get('details')] if x))
+    if section_visible(data, 'certifications') and data.get('certifications'):
+        section_heading(container, section_title(data, 'certifications'), template)
+        container.add_paragraph(' | '.join(data['certifications']))
+    if section_visible(data, 'additional') and data.get('additional'):
+        section_heading(container, section_title(data, 'additional'), template)
         for item in data['additional']:
             container.add_paragraph(item)
     for custom in data.get('custom_sections', []):
+        if custom.get('hidden'):
+            continue
         section_heading(container, custom['title'], template)
         for bullet in custom.get('bullets', []):
             container.add_paragraph(bullet, style='List Bullet')
@@ -362,7 +421,14 @@ def add_skills_table(container, skills: list[list[str]], template: str) -> None:
         for j in range(3):
             cell = table.cell(i, j)
             cell.text = row[j] if j < len(row) else ''
-            cell_margins(cell, 40, 60, 40, 60)
+            for p in cell.paragraphs:
+                for r in p.runs:
+                    r.font.size = Pt(8.2)
+                p.paragraph_format.keep_together = True
+            tc_pr = cell._tc.get_or_add_tcPr()
+            no_wrap = OxmlElement('w:noWrap')
+            tc_pr.append(no_wrap)
+            cell_margins(cell, 34, 42, 34, 42)
             if template == 'two-column':
                 shade_cell(cell, 'e2e8f0')
             elif template == 'technical':
@@ -535,39 +601,51 @@ def pdf_single(data: dict[str, Any], template: str, styles: dict[str, ParagraphS
 
 def pdf_body(data: dict[str, Any], template: str, styles: dict[str, ParagraphStyle]) -> list[Any]:
     story: list[Any] = []
-    story += pdf_heading('Professional Summary', template, styles)
-    story.append(P(data['summary'], styles['body']))
-    story += pdf_heading('Areas of Expertise', template, styles)
-    if template in ('two-column',):
-        story.append(chip_table([x for row in data['skills'] for x in row if x], '#e2e8f0'))
-    else:
-        rows = [[P(c, styles['body']) for c in row] for row in data['skills']]
-        t = Table(rows, colWidths=[2.35 * inch, 2.35 * inch, 2.35 * inch])
-        t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 2)]))
-        story.append(t)
-    story += pdf_heading('Technical Proficiencies', template, styles)
-    tech_style = ParagraphStyle('tech', parent=styles['body'], fontName='Courier' if template == 'technical' else styles['body'].fontName)
-    for k, v in data['technical'].items():
-        story.append(Paragraph(f'<b>{html.escape(k)}:</b> {html.escape(v)}', tech_style))
-    story += pdf_heading('Career Experience', template, styles)
-    for idx, job in enumerate(data['experience']):
-        block = pdf_job(job, styles)
-        if template == 'corporate' and idx % 2 == 1:
-            t = Table([[block]], colWidths=[7.25 * inch])
-            t.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f9fafb')), ('LEFTPADDING', (0, 0), (-1, -1), 8), ('RIGHTPADDING', (0, 0), (-1, -1), 8), ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 3)]))
-            story.append(t)
+    if section_visible(data, 'summary') and data.get('summary'):
+        story += pdf_heading(section_title(data, 'summary'), template, styles)
+        story.append(P(data['summary'], styles['body']))
+    if section_visible(data, 'skills') and data.get('skills'):
+        story += pdf_heading(section_title(data, 'skills'), template, styles)
+        skill_line = ' | '.join(x for row in data['skills'] for x in row if x)
+        if template == 'ats-optimized':
+            story.append(P(skill_line, styles['body']))
+        elif template in ('two-column',):
+            story.append(chip_table([x for row in data['skills'] for x in row if x], '#e2e8f0'))
         else:
-            story.extend(block)
-    story += pdf_heading('Education', template, styles)
-    for e in data['education']:
-        story.append(P(' — '.join(x for x in [e.get('degree'), e.get('school'), e.get('details')] if x), styles['body']))
-    story += pdf_heading('Certifications', template, styles)
-    story.append(P(' | '.join(data['certifications']), styles['body']))
-    if data.get('additional'):
-        story += pdf_heading('Additional Experience', template, styles)
+            skill_style = ParagraphStyle('skillnowrap', parent=styles['body'], fontSize=7.6, leading=9.0, splitLongWords=False, wordWrap=None)
+            rows = [[P(c, skill_style) for c in row] for row in data['skills']]
+            t = Table(rows, colWidths=[2.43 * inch, 2.43 * inch, 2.43 * inch])
+            t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 1)]))
+            story.append(t)
+    if section_visible(data, 'technical') and data.get('technical'):
+        story += pdf_heading(section_title(data, 'technical'), template, styles)
+        tech_style = ParagraphStyle('tech', parent=styles['body'], fontName='Courier' if template == 'technical' else styles['body'].fontName)
+        for k, v in data['technical'].items():
+            story.append(Paragraph(f'<b>{html.escape(k)}:</b> {html.escape(v)}', tech_style))
+    if section_visible(data, 'experience') and data.get('experience'):
+        story += pdf_heading(section_title(data, 'experience'), template, styles)
+        for idx, job in enumerate(data['experience']):
+            block = pdf_job(job, styles)
+            if template == 'corporate' and idx % 2 == 1:
+                t = Table([[block]], colWidths=[7.25 * inch])
+                t.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f9fafb')), ('LEFTPADDING', (0, 0), (-1, -1), 8), ('RIGHTPADDING', (0, 0), (-1, -1), 8), ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 3)]))
+                story.append(t)
+            else:
+                story.extend(block)
+    if section_visible(data, 'education') and data.get('education'):
+        story += pdf_heading(section_title(data, 'education'), template, styles)
+        for e in data['education']:
+            story.append(P(' — '.join(x for x in [e.get('degree'), e.get('school'), e.get('details')] if x), styles['body']))
+    if section_visible(data, 'certifications') and data.get('certifications'):
+        story += pdf_heading(section_title(data, 'certifications'), template, styles)
+        story.append(P(' | '.join(data['certifications']), styles['body']))
+    if section_visible(data, 'additional') and data.get('additional'):
+        story += pdf_heading(section_title(data, 'additional'), template, styles)
         for a in data['additional']:
             story.append(P(a, styles['body']))
     for custom in data.get('custom_sections', []):
+        if custom.get('hidden'):
+            continue
         story += pdf_heading(custom['title'], template, styles)
         for b in custom.get('bullets', []):
             story.append(P('• ' + b, styles['body']))
@@ -618,18 +696,33 @@ def pdf_ats(data: dict[str, Any], styles: dict[str, ParagraphStyle]) -> list[Any
     c = data['contact']
     plain = ParagraphStyle('plain', parent=styles['body'], fontName='Helvetica', fontSize=9.5, leading=11.5, textColor=colors.black)
     story: list[Any] = [P(c['name'], ParagraphStyle('atsname', parent=plain, fontName='Helvetica-Bold', fontSize=11)), P(c['title'], plain), P(contact_line(c), plain), Spacer(1, 6)]
-    for h, lines in [('PROFESSIONAL SUMMARY', [data['summary']]), ('AREAS OF EXPERTISE', [' | '.join(x for r in data['skills'] for x in r if x)]), ('TECHNICAL PROFICIENCIES', [f'{k}: {v}' for k, v in data['technical'].items()])]:
-        story.append(P(h, ParagraphStyle(h, parent=plain, fontName='Helvetica-Bold')))
-        for line in lines:
-            story.append(P(line, plain))
-    story.append(P('CAREER EXPERIENCE', ParagraphStyle('exp', parent=plain, fontName='Helvetica-Bold')))
-    for job in data['experience']:
-        story.append(P(' | '.join(x for x in [job.get('title'), job.get('company'), job.get('location'), job.get('dates')] if x), plain))
-        for b in job.get('bullets', []):
+    sections = [
+        ('summary', [data['summary']]),
+        ('skills', [' | '.join(x for r in data['skills'] for x in r if x)]),
+        ('technical', [f'{k}: {v}' for k, v in data['technical'].items()]),
+    ]
+    for key, lines in sections:
+        if section_visible(data, key) and any(lines):
+            story.append(P(section_title(data, key).upper(), ParagraphStyle(key, parent=plain, fontName='Helvetica-Bold')))
+            for line in lines:
+                story.append(P(line, plain))
+    if section_visible(data, 'experience') and data.get('experience'):
+        story.append(P(section_title(data, 'experience').upper(), ParagraphStyle('exp', parent=plain, fontName='Helvetica-Bold')))
+        for job in data['experience']:
+            story.append(P(' | '.join(x for x in [job.get('title'), job.get('company'), job.get('location'), job.get('dates')] if x), plain))
+            for b in job.get('bullets', []):
+                story.append(P(b, plain))
+    if section_visible(data, 'education') and data.get('education'):
+        story.append(P(section_title(data, 'education').upper(), ParagraphStyle('edu', parent=plain, fontName='Helvetica-Bold')))
+        for e in data['education']:
+            story.append(P(' | '.join(x for x in [e.get('degree'), e.get('school'), e.get('details')] if x), plain))
+    if section_visible(data, 'certifications') and data.get('certifications'):
+        story.append(P(section_title(data, 'certifications').upper(), ParagraphStyle('cert', parent=plain, fontName='Helvetica-Bold')))
+        story.append(P(' | '.join(data['certifications']), plain))
+    for custom in data.get('custom_sections', []):
+        if custom.get('hidden'):
+            continue
+        story.append(P(custom.get('title', 'Additional Information').upper(), ParagraphStyle(custom.get('title', 'custom'), parent=plain, fontName='Helvetica-Bold')))
+        for b in custom.get('bullets', []):
             story.append(P(b, plain))
-    story.append(P('EDUCATION', ParagraphStyle('edu', parent=plain, fontName='Helvetica-Bold')))
-    for e in data['education']:
-        story.append(P(' | '.join(x for x in [e.get('degree'), e.get('school'), e.get('details')] if x), plain))
-    story.append(P('CERTIFICATIONS', ParagraphStyle('cert', parent=plain, fontName='Helvetica-Bold')))
-    story.append(P(' | '.join(data['certifications']), plain))
     return story

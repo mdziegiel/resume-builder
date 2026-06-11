@@ -22,7 +22,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from database import DB_PATH, UPLOAD_DIR, connect, dumps, loads, now
 from document_renderer import docx_bytes, merge_resume_data, pdf_bytes, safe_filename
-from seed import DEFAULT_RESUME, insert_sample_resume, seed
+from seed import DEFAULT_RESUME, ROLE_LIBRARY, insert_sample_resume, seed
 
 app = FastAPI(title='Resume Builder', version='1.0.0')
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
@@ -492,11 +492,124 @@ def thank_you(payload: ThankYouIn):
     text = claude(prompt) or thank_template(payload.company, payload.interviewer, payload.position, payload.interview_date, sender_name, sender_contact)
     return save_doc(DocIn(kind='thank_you', title=f'Thank You - {payload.company or "Draft"}', resume_id=payload.resume_id, data={'content': text, 'sender_name': sender_name, 'sender_contact': sender_contact, **payload.model_dump()}))
 
+ROLE_SPECIALIZATIONS: dict[str, dict[str, Any]] = {
+    'azure administrator': {
+        'skills': ['Azure Administration', 'ARM Templates', 'Virtual Networks', 'Network Security Groups', 'Entra ID', 'RBAC', 'Azure Monitor', 'Cost Management', 'Azure Policy', 'Backup / Recovery', 'PowerShell / CLI', 'AZ-104 Readiness'],
+        'technical': {'Azure Infrastructure': 'ARM templates, VNets, subnets, NSGs, route tables, Azure Bastion, storage accounts', 'Identity': 'Microsoft Entra ID, RBAC, conditional access, privileged access reviews', 'Operations': 'Azure Monitor, Log Analytics, alerts, backup, cost management, Azure Policy'},
+        'certs': ['Microsoft Certified: Azure Administrator Associate (AZ-104)', 'Microsoft Azure Fundamentals'],
+        'verbs': ['administered Azure landing-zone resources', 'standardized RBAC and policy assignments', 'improved visibility with Azure Monitor and Log Analytics']
+    },
+    'network administrator': {
+        'skills': ['Cisco IOS', 'VLANs / Trunking', 'BGP / OSPF', 'pfSense Firewalls', 'Wireshark Analysis', 'VPN Administration', 'Network Segmentation', 'Switching / Routing', 'DHCP / DNS', 'Wireless LAN', 'CCNA Readiness', 'Documentation'],
+        'technical': {'Network Platforms': 'Cisco IOS, pfSense, UniFi, managed switching, wireless controllers', 'Protocols': 'VLANs, STP, BGP, OSPF, IPsec, DHCP, DNS, NAT, ACLs', 'Tools': 'Wireshark, SNMP monitoring, syslog, NetFlow, configuration backup'},
+        'certs': ['Cisco Certified Network Associate (CCNA)', 'CompTIA Network+'],
+        'verbs': ['maintained routed and switched infrastructure', 'segmented network services with VLANs and firewall rules', 'resolved packet-level issues using Wireshark and monitoring data']
+    },
+    'endpoint engineer': {
+        'skills': ['Microsoft Intune', 'Windows Autopilot', 'Compliance Policies', 'Configuration Profiles', 'MD-102 Readiness', 'SCCM Co-management', 'Endpoint Security', 'App Deployment', 'Patch Rings', 'Conditional Access', 'Device Enrollment', 'PowerShell'],
+        'technical': {'Endpoint Management': 'Intune, Autopilot, compliance policies, configuration profiles, enrollment restrictions', 'Co-management': 'SCCM/MECM, collections, application packaging, update rings, device inventory', 'Security': 'Defender for Endpoint, BitLocker, baseline policies, conditional access signals'},
+        'certs': ['Microsoft 365 Certified: Endpoint Administrator Associate (MD-102)', 'Microsoft Certified: Security, Compliance, and Identity Fundamentals'],
+        'verbs': ['engineered Intune and Autopilot endpoint standards', 'deployed compliance and configuration profiles', 'coordinated SCCM co-management and application rollout']
+    },
+    'm365 engineer': {
+        'skills': ['Exchange Online', 'SharePoint Online', 'Teams Administration', 'DLP Policies', 'MS-102 Readiness', 'Power Platform', 'Purview', 'Entra ID', 'Mailbox Migration', 'Retention Policies', 'Secure Collaboration', 'PowerShell'],
+        'technical': {'Microsoft 365': 'Exchange Online, SharePoint Online, Teams admin center, OneDrive, Microsoft Purview', 'Security / Compliance': 'DLP policies, retention, eDiscovery, sensitivity labels, conditional access', 'Automation': 'PowerShell, Power Platform, reporting, service-health monitoring'},
+        'certs': ['Microsoft 365 Certified: Administrator Expert (MS-102)', 'Microsoft 365 Fundamentals'],
+        'verbs': ['administered Microsoft 365 collaboration workloads', 'implemented DLP and retention policies', 'automated Exchange Online and Teams administration tasks']
+    },
+}
+
+CATEGORY_PROFILES: dict[str, dict[str, Any]] = {
+    'Network Administration': {'skills': ['Routing / Switching', 'Firewall Administration', 'VPN Operations', 'Network Monitoring', 'Incident Response', 'Documentation', 'Wireless Networks', 'DNS / DHCP', 'Change Control', 'Vendor Coordination', 'Capacity Planning', 'Security Segmentation'], 'certs': ['CompTIA Network+', 'CCNA'], 'technical': {'Network': 'routing, switching, VLANs, firewall policy, VPN, wireless, DNS/DHCP', 'Operations': 'monitoring, diagrams, change control, vendor escalation, incident response'}},
+    'Systems Administration': {'skills': ['Windows Server', 'Active Directory', 'Group Policy', 'Virtualization', 'Backup / Recovery', 'Patch Management', 'PowerShell', 'Server Monitoring', 'Identity Administration', 'Storage', 'Documentation', 'Incident Resolution'], 'certs': ['Microsoft Certified: Windows Server Hybrid Administrator', 'CompTIA Server+'], 'technical': {'Systems': 'Windows Server, AD DS, Group Policy, Hyper-V/VMware, storage, backup platforms', 'Automation': 'PowerShell, scheduled maintenance, monitoring, patching, documentation'}},
+    'Endpoint / Microsoft 365': {'skills': ['Microsoft Intune', 'Microsoft 365 Admin', 'Endpoint Compliance', 'Autopilot', 'Exchange Online', 'Teams Administration', 'SharePoint Online', 'PowerShell', 'Device Lifecycle', 'Security Baselines', 'User Support', 'Reporting'], 'certs': ['Microsoft 365 Certified: Endpoint Administrator Associate', 'Microsoft 365 Fundamentals'], 'technical': {'Modern Workplace': 'Intune, Microsoft 365 admin centers, Autopilot, Teams, Exchange Online, SharePoint', 'Endpoint': 'configuration profiles, compliance policy, app deployment, update rings, device inventory'}},
+    'Cloud & Hybrid': {'skills': ['Azure Infrastructure', 'Hybrid Identity', 'Cloud Networking', 'RBAC', 'Monitoring', 'IaC Templates', 'Backup / Recovery', 'Cost Control', 'Policy Governance', 'Migration Support', 'Automation', 'Security Controls'], 'certs': ['Microsoft Certified: Azure Administrator Associate', 'Azure Fundamentals'], 'technical': {'Cloud': 'Azure compute, storage, networking, Entra ID, RBAC, Azure Monitor, backup', 'Hybrid': 'site connectivity, identity synchronization, migration planning, policy governance'}},
+    'Security': {'skills': ['Security Monitoring', 'Incident Triage', 'Vulnerability Management', 'Endpoint Protection', 'SIEM Review', 'Access Controls', 'Policy Enforcement', 'Risk Documentation', 'Phishing Response', 'Log Analysis', 'Hardening', 'Compliance Support'], 'certs': ['CompTIA Security+', 'Microsoft Security, Compliance, and Identity Fundamentals'], 'technical': {'Security Operations': 'SIEM, EDR, vulnerability scanners, log review, incident documentation', 'Controls': 'MFA, access reviews, endpoint hardening, policy enforcement, remediation tracking'}},
+    'Executive & Administrative Support': {'skills': ['Executive Calendar Management', 'Travel Coordination', 'Board Materials', 'Confidential Communication', 'Meeting Logistics', 'Expense Reporting', 'Stakeholder Liaison', 'Office Operations', 'Process Improvement', 'Vendor Coordination', 'Document Preparation', 'Priority Management'], 'certs': ['Certified Administrative Professional (CAP)', 'Microsoft Office Specialist'], 'technical': {'Business Tools': 'Microsoft Office, Outlook, Teams, Zoom, expense platforms, CRM/ERP coordination', 'Administration': 'calendar workflows, board packets, travel, correspondence, office procedures'}},
+    'Accounting & Finance': {'skills': ['Month-End Close', 'Account Reconciliation', 'Financial Reporting', 'General Ledger', 'AP / AR', 'Payroll Coordination', 'Budget Support', 'Variance Analysis', 'Tax Documentation', 'Audit Support', 'Excel Modeling', 'Internal Controls'], 'certs': ['QuickBooks ProAdvisor', 'Microsoft Excel Expert'], 'technical': {'Finance Systems': 'QuickBooks, ERP/accounting platforms, Excel, payroll systems, bank portals', 'Accounting': 'GL, reconciliations, close, AP/AR, reporting, controls, audit support'}},
+    'CPA Firm': {'skills': ['Tax Preparation', 'Client Accounting Services', 'Audit Coordination', 'Practice Workflow', 'Engagement Tracking', 'Client Communication', 'Document Management', 'Tax Operations', 'Deadline Management', 'Billing Support', 'Compliance Documentation', 'Workflow Improvement'], 'certs': ['IRS Annual Filing Season Program', 'QuickBooks ProAdvisor'], 'technical': {'Practice Tools': 'tax software, QuickBooks, document portals, workflow management, e-signature tools', 'Client Service': 'engagement setup, organizer tracking, deliverables, deadline control'}},
+    'HR & Recruiting': {'skills': ['Candidate Coordination', 'ATS Administration', 'Onboarding', 'Benefits Support', 'Employee Relations Intake', 'Compliance Documentation', 'Interview Scheduling', 'Offer Processing', 'HRIS Data Quality', 'Policy Communication', 'Reporting', 'Confidential Records'], 'certs': ['SHRM-CP Coursework', 'HR Management Certificate'], 'technical': {'HR Systems': 'ATS, HRIS, benefits portals, background-check platforms, Microsoft Office', 'People Operations': 'onboarding, candidate workflows, employee records, compliance tracking'}},
+    'Legal & Professional Services': {'skills': ['Matter Management', 'Legal Drafting', 'eFiling', 'Discovery Support', 'Calendar / Docket Control', 'Client Communication', 'Document Review', 'Case Preparation', 'Billing Support', 'Confidential Records', 'Research Support', 'Deadline Management'], 'certs': ['Paralegal Certificate', 'Notary Public'], 'technical': {'Legal Tools': 'case management systems, eFiling portals, document management, Microsoft Office', 'Practice Support': 'pleadings, discovery, docketing, client files, billing coordination'}},
+    'Healthcare': {'skills': ['Practice Operations', 'Patient Scheduling', 'Insurance Verification', 'HIPAA Compliance', 'Medical Records', 'Front Office Leadership', 'Revenue Cycle Support', 'Provider Coordination', 'Patient Communication', 'EHR Workflows', 'Referral Tracking', 'Staff Coordination'], 'certs': ['Certified Medical Administrative Assistant', 'HIPAA Training'], 'technical': {'Healthcare Systems': 'EHR/EMR, scheduling, insurance portals, referral platforms, patient communication tools', 'Operations': 'front desk, records, revenue cycle support, provider schedules, HIPAA controls'}},
+    'Real Estate': {'skills': ['Lease Administration', 'Tenant Relations', 'Property Operations', 'Vendor Coordination', 'Transaction Support', 'Closing Documentation', 'Budget Tracking', 'Maintenance Coordination', 'Compliance Records', 'CRM Updates', 'Market Documentation', 'Client Communication'], 'certs': ['Real Estate License Coursework', 'Property Management Certificate'], 'technical': {'Real Estate Tools': 'property management systems, MLS/CRM tools, e-signature platforms, Excel', 'Operations': 'leases, closings, vendor work orders, tenant files, transaction checklists'}},
+    'Operations & Business Support': {'skills': ['Project Coordination', 'Process Improvement', 'Vendor Management', 'Compliance Tracking', 'Client Service', 'Reporting', 'SOP Documentation', 'Cross-Functional Support', 'Scheduling', 'Budget Support', 'Risk Follow-Up', 'Service Delivery'], 'certs': ['Certified Associate in Project Management (CAPM)', 'Lean Six Sigma Yellow Belt'], 'technical': {'Operations Tools': 'Microsoft 365, project trackers, CRM, ticketing/workflow tools, reporting dashboards', 'Business Support': 'SOPs, vendor follow-up, compliance logs, client communication, process metrics'}},
+}
+
+ROLE_OVERRIDES = {
+    'tax manager': ['Tax Planning', 'Review Workpapers', 'Client Advisory', 'Entity Returns', 'Tax Research', 'Staff Coaching'],
+    'controller': ['Close Leadership', 'Internal Controls', 'Board Reporting', 'Cash Forecasting', 'Audit Leadership', 'Team Management'],
+    'paralegal': ['Discovery', 'Pleadings', 'Legal Research', 'Trial Preparation', 'eFiling', 'Matter Management'],
+    'property manager': ['Tenant Relations', 'Lease Compliance', 'Maintenance Coordination', 'Property Budgets', 'Vendor Oversight', 'Occupancy Reporting'],
+    'chief of staff': ['Executive Rhythm', 'Strategic Initiatives', 'Board Readiness', 'Operating Cadence', 'Decision Support', 'Cross-Functional Alignment'],
+}
+
+
+def role_category(title: str) -> str:
+    for category, titles in ROLE_LIBRARY.items():
+        if title in titles:
+            return category
+    lowered = title.lower()
+    for category, titles in ROLE_LIBRARY.items():
+        if any(t.lower() == lowered for t in titles):
+            return category
+    return 'Operations & Business Support'
+
+
+def role_profile(title: str) -> dict[str, Any]:
+    lowered = title.lower().strip()
+    if lowered in ROLE_SPECIALIZATIONS:
+        return ROLE_SPECIALIZATIONS[lowered]
+    category = role_category(title)
+    profile = json.loads(json.dumps(CATEGORY_PROFILES.get(category, CATEGORY_PROFILES['Operations & Business Support'])))
+    for key, extra in ROLE_OVERRIDES.items():
+        if key in lowered:
+            profile['skills'] = (extra + profile['skills'])[:12]
+            break
+    # Title-specific substitutions so every library role is materially different, not one generic corpse.
+    title_tokens = [w for w in re.split(r'[^A-Za-z0-9]+', title) if len(w) > 2 and w.lower() not in {'senior', 'administrator', 'engineer', 'manager', 'coordinator', 'assistant'}]
+    distinctive = [f'{token} Operations' for token in title_tokens[:2]] + [f'{title} Stakeholder Support']
+    profile['skills'] = (distinctive + [x for x in profile['skills'] if x not in distinctive])[:12]
+    profile['technical']['Role Focus'] = f'{title} workflows, {category.lower()} standards, reporting, documentation, and stakeholder execution'
+    return profile
+
+
+def fallback_role_resume(payload: RoleBuildIn) -> dict[str, Any]:
+    profile = role_profile(payload.title)
+    skills = profile['skills'][:12]
+    verbs = profile.get('verbs') or [
+        f'owned {payload.title.lower()} workflows across daily operations, documentation, and issue resolution',
+        f'improved {payload.industry.lower()} service delivery through repeatable processes and stakeholder communication',
+        'converted ambiguous requirements into trackable work, clean handoffs, and measurable operational outcomes',
+    ]
+    category = role_category(payload.title)
+    return normalize_resume_data({
+        'contact': {'name': '', 'title': payload.title, 'email': '', 'phone': '', 'linkedin': '', 'portfolio': '', 'location': ''},
+        'summary': f'{payload.title} with role-specific experience in {category.lower()} environments, combining {skills[0]}, {skills[1]}, and {skills[2]} with disciplined documentation, stakeholder partnership, and measurable execution. Recognized for translating business priorities into reliable processes, resolving operational blockers, and maintaining controls appropriate for {payload.industry} organizations.',
+        'skills': [(skills[i:i+3] + ['', '', ''])[:3] for i in range(0, len(skills), 3)],
+        'technical': profile['technical'],
+        'experience': [
+            {'title': payload.title, 'company': 'Confidential Organization', 'location': '', 'dates': '2022 – Present', 'bullets': [
+                f'{verbs[0].capitalize()} while maintaining accurate documentation, status reporting, and escalation discipline.',
+                f'{verbs[1].capitalize()} using role-appropriate tools, controls, and communication routines.',
+                f'Partnered with leadership, peers, vendors, and end users to prioritize work, remove blockers, and improve {payload.title.lower()} outcomes.'
+            ]},
+            {'title': f'{payload.title} / Operations Specialist', 'company': 'Professional Services Organization', 'location': '', 'dates': '2019 – 2022', 'bullets': [
+                f'Supported {payload.title.lower()} functions across recurring operations, issue tracking, documentation, and stakeholder follow-up.',
+                f'Built checklists, templates, and reporting cadences that improved consistency and reduced preventable rework.',
+                f'Handled confidential information, deadlines, and competing priorities with practical judgment and service-focused execution.'
+            ]}
+        ],
+        'education': [{'degree': f'Professional development aligned to {payload.title}', 'school': '', 'details': payload.industry}],
+        'certifications': profile.get('certs', []),
+        'additional': [f'Selected projects include {skills[0].lower()}, {skills[1].lower()}, workflow cleanup, reporting improvement, and stakeholder-ready documentation.'],
+        'custom_sections': [{'title': 'Role-Specific Impact', 'bullets': [f'Applied {skills[0]}, {skills[1]}, and {skills[2]} to improve execution quality.', f'Maintained clean handoffs and audit-ready documentation for {payload.title.lower()} responsibilities.']}]
+    })
+
 @app.post('/api/role-build')
 def role_build(payload: RoleBuildIn):
     prompt = '''Create premium resume content JSON for the requested target role. Return ONLY JSON matching this schema:
 {"contact":{"name":"","title":"","email":"","phone":"","linkedin":"","portfolio":"","location":""},"summary":"","skills":[["","",""]],"technical":{"Category":"items"},"experience":[{"title":"","company":"","location":"","dates":"","bullets":[""]}],"education":[{"degree":"","school":"","details":""}],"certifications":[],"additional":[],"custom_sections":[{"title":"","bullets":[""]}]}
-Requirements: 12-18 role-specific Areas of Expertise in three-column rows, strong executive summary, credible achievement-oriented bullets, and role-specific technical/tool categories. Keep contact fields blank except title.'''
+Requirements: 12-18 role-specific Areas of Expertise in three-column rows, strong executive summary, credible achievement-oriented bullets, and role-specific technical/tool categories. Keep contact fields blank except title. The content must be unmistakably specific to the exact requested title, not broad generic IT/operations language. For example: Azure Administrator must include ARM templates, VNets, NSGs, Entra ID, AZ-104, Azure Monitor, RBAC, and Cost Management; Network Administrator must include Cisco IOS, VLANs, BGP/OSPF, pfSense, Wireshark, CCNA, and network segmentation; Endpoint Engineer must include Intune, Autopilot, compliance policies, configuration profiles, MD-102, and SCCM co-management; M365 Engineer must include Exchange Online, SharePoint, Teams admin, DLP policies, MS-102, and Power Platform. Non-IT roles must avoid IT-only technical sections unless the requested title is technical.'''
     prompt += '\nREQUEST:' + payload.model_dump_json()
     generated = claude(prompt)
     parsed = extract_json_object(generated or '')
@@ -505,23 +618,7 @@ Requirements: 12-18 role-specific Areas of Expertise in three-column rows, stron
         parsed['contact'] = {**{'name': '', 'title': '', 'email': '', 'phone': '', 'linkedin': '', 'portfolio': '', 'location': ''}, **parsed.get('contact', {})}
         parsed['contact']['title'] = payload.title
         return {'resume': normalize_resume_data(parsed), 'raw_generation': generated}
-    role_skills = [
-        'Strategic Planning', 'Operational Leadership', 'Stakeholder Management',
-        'Process Improvement', 'Risk Management', 'Cross-Functional Collaboration',
-        'Documentation', 'Vendor Management', 'Performance Reporting',
-        'Change Management', 'Compliance', 'Service Delivery'
-    ]
-    if re.search(r'network|infrastructure|systems|endpoint|cloud|security|administrator|engineer', payload.title, re.I):
-        role_skills = ['Network Administration', 'Infrastructure Operations', 'Microsoft 365 / Entra ID', 'Active Directory / Group Policy', 'Endpoint Management', 'Firewall / VPN', 'Systems Monitoring', 'Security Hardening', 'Incident Response', 'Vendor Management', 'Documentation', 'Project Delivery']
-    base = normalize_resume_data({
-        'contact': {'name': '', 'title': payload.title, 'email': '', 'phone': '', 'linkedin': '', 'portfolio': '', 'location': ''},
-        'summary': f'{payload.title} candidate with senior-level capability across {payload.industry}, operational execution, stakeholder partnership, and measurable process improvement. Brings disciplined documentation, risk-aware decision making, and the ability to translate business needs into reliable outcomes.',
-        'skills': [(role_skills[i:i+3] + ['', '', ''])[:3] for i in range(0, len(role_skills), 3)],
-        'technical': {'Core Capabilities': ', '.join(role_skills[:8]), 'Target Industry': payload.industry},
-        'experience': [{'title': payload.title, 'company': '', 'location': '', 'dates': '', 'bullets': ['Led role-aligned initiatives that improved service quality, consistency, and stakeholder confidence.', 'Built repeatable processes, documentation, and reporting to reduce operational risk and improve execution.', 'Partnered with cross-functional teams and vendors to resolve issues, prioritize work, and deliver business outcomes.']}],
-        'education': [], 'certifications': [], 'additional': [], 'custom_sections': []
-    })
-    return {'resume': base, 'raw_generation': generated}
+    return {'resume': fallback_role_resume(payload), 'raw_generation': generated}
 
 def extract_json_object(text: str) -> Optional[dict[str, Any]]:
     if not text:

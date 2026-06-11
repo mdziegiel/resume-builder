@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowLeft, Download, FileText, Plus, Save, Sparkles, Trash2, Upload, Wand2 } from 'lucide-react'
+import { ArrowLeft, Download, Eye, EyeOff, FileText, Plus, Save, Sparkles, Trash2, Upload, Wand2 } from 'lucide-react'
+import * as pdfjsLib from 'pdfjs-dist'
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import './index.css'
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker
 
 const API = '/api'
 const api = async (path, options = {}) => {
@@ -23,7 +26,7 @@ const templateMeta = {
 }
 const blankResume = {
   contact: { name: '', title: '', email: '', phone: '', linkedin: '', portfolio: '', location: '' },
-  summary: '', skills: [['', '', '']], technical: {}, experience: [], education: [], certifications: [], additional: [], custom_sections: []
+  summary: '', skills: [['', '', '']], technical: {}, experience: [], education: [], certifications: [], additional: [], custom_sections: [], section_meta: {}
 }
 const safe = (v) => String(v || '').replace(/<[^>]+>/g, '')
 const cloneBlankResume = () => structuredClone(blankResume)
@@ -47,6 +50,28 @@ const normalizeSkillRows = (skills) => {
   return rows
 }
 const isBlankResumeData = (data) => JSON.stringify(data || {}) === JSON.stringify(blankResume)
+
+const defaultSectionTitles = { contact: 'Contact Info', summary: 'Professional Summary', skills: 'Areas of Expertise', technical: 'Technical Proficiencies', experience: 'Career Experience', education: 'Education', certifications: 'Certifications', additional: 'Additional Experience', custom_sections: 'Custom Sections', ats: 'Job-targeted resume mode' }
+const sectionTitle = (data, key, fallback) => data?.section_meta?.[key]?.title || fallback || defaultSectionTitles[key] || key
+const sectionHidden = (data, key) => !!data?.section_meta?.[key]?.hidden
+const setSectionMeta = (data, setData, key, patch) => setData({ ...data, section_meta: { ...(data.section_meta || {}), [key]: { title: sectionTitle(data, key), hidden: false, ...((data.section_meta || {})[key] || {}), ...patch } } })
+const prepareResumeForRender = (data) => {
+  const d = structuredClone(data || {})
+  const meta = d.section_meta || {}
+  Object.entries(meta).forEach(([key, value]) => {
+    if (!value?.hidden) return
+    if (key === 'contact') d.contact = { name: '', title: '', email: '', phone: '', linkedin: '', portfolio: '', location: '' }
+    if (key === 'summary') d.summary = ''
+    if (key === 'skills') d.skills = []
+    if (key === 'technical') d.technical = {}
+    if (key === 'experience') d.experience = []
+    if (key === 'education') d.education = []
+    if (key === 'certifications') d.certifications = []
+    if (key === 'additional') d.additional = []
+  })
+  d.custom_sections = (d.custom_sections || []).filter(x => !x.hidden)
+  return d
+}
 
 function App() {
   const [page, setPage] = useState('editor')
@@ -127,31 +152,42 @@ function Editor({ resume, setResume, setPage, reload }) {
   function back() { if (dirty && !confirm('Discard unsaved changes and return to the Dashboard?')) return; setResume(null); setPage('dashboard') }
   return <div className="grid gap-6 xl:grid-cols-[560px_1fr]">
     <section className="glass max-h-[calc(100vh-130px)] overflow-auto p-5 scrollbar">
-      <div className="flex flex-wrap gap-2"><button className="btn" onClick={back}><ArrowLeft className="mr-1 inline h-4 w-4" />Back</button><button className="btn btn-primary" onClick={save}><Save className="mr-1 inline h-4 w-4" />Save</button><button className="btn" onClick={dup}>Save Version</button><button className="btn" onClick={() => downloadResume(data, template, 'docx')}><Download className="mr-1 inline h-4 w-4" />DOCX</button><button className="btn" onClick={() => downloadResume(data, template, 'pdf')}>PDF</button></div>
+      <div className="flex flex-wrap gap-2"><button className="btn" onClick={back}><ArrowLeft className="mr-1 inline h-4 w-4" />Back</button><button className="btn btn-primary" onClick={save}><Save className="mr-1 inline h-4 w-4" />Save</button><button className="btn" onClick={dup}>Save Version</button><button className="btn" onClick={() => downloadResume(prepareResumeForRender(data), template, 'docx')}><Download className="mr-1 inline h-4 w-4" />DOCX</button><button className="btn" onClick={() => downloadResume(prepareResumeForRender(data), template, 'pdf')}>PDF</button></div>
       <label className="mt-4 block text-sm text-slate-400">Template</label><select className="input mt-1" value={template} onChange={e => setTemplate(e.target.value)}>{templates.map(t => <option key={t} value={t}>{templateMeta[t][0]}</option>)}</select>
-      <Section title="Contact Info"><Input label="Name" v={data.contact.name} on={v => set(['contact', 'name'], v)} /><Input label="Title" v={data.contact.title} on={v => set(['contact', 'title'], v)} /><Input label="Email" v={data.contact.email} on={v => set(['contact', 'email'], v)} /><Input label="Phone" v={data.contact.phone} on={v => set(['contact', 'phone'], v)} /><Input label="LinkedIn" v={data.contact.linkedin} on={v => set(['contact', 'linkedin'], v)} /><Input label="Portfolio" v={data.contact.portfolio} on={v => set(['contact', 'portfolio'], v)} /><Input label="Location" v={data.contact.location} on={v => set(['contact', 'location'], v)} /></Section>
-      <Section title="Professional Summary"><RichText value={data.summary} onChange={v => set(['summary'], v)} /></Section>
+      <Section title="Contact Info" sectionKey="contact" data={data} setData={setData}><Input label="Name" v={data.contact.name} on={v => set(['contact', 'name'], v)} /><Input label="Title" v={data.contact.title} on={v => set(['contact', 'title'], v)} /><Input label="Email" v={data.contact.email} on={v => set(['contact', 'email'], v)} /><Input label="Phone" v={data.contact.phone} on={v => set(['contact', 'phone'], v)} /><Input label="LinkedIn" v={data.contact.linkedin} on={v => set(['contact', 'linkedin'], v)} /><Input label="Portfolio" v={data.contact.portfolio} on={v => set(['contact', 'portfolio'], v)} /><Input label="Location" v={data.contact.location} on={v => set(['contact', 'location'], v)} /></Section>
+      <Section title="Professional Summary" sectionKey="summary" data={data} setData={setData}><RichText value={data.summary} onChange={v => set(['summary'], v)} /></Section>
       <Skills data={data} setData={setData} />
       <Technical data={data} setData={setData} />
       <Experience data={data} setData={setData} />
       <Education data={data} setData={setData} />
-      <List title="Certifications" items={data.certifications || []} setItems={x => set(['certifications'], x)} />
-      <List title="Additional Experience" items={data.additional || []} setItems={x => set(['additional'], x)} />
+      <List title="Certifications" sectionKey="certifications" data={data} setData={setData} items={data.certifications || []} setItems={x => set(['certifications'], x)} />
+      <List title="Additional Experience" sectionKey="additional" data={data} setData={setData} items={data.additional || []} setItems={x => set(['additional'], x)} />
       <CustomSections data={data} setData={setData} />
-      <Section title="Job-targeted resume mode"><textarea className="input h-32" placeholder="Paste job description" value={job} onChange={e => setJob(e.target.value)} /><button className="btn btn-primary mt-2" onClick={analyze}><Sparkles className="mr-1 inline h-4 w-4" />Analyze ATS Fit</button>{tailor && <div className="mt-3 rounded-xl bg-black/30 p-3"><div className="text-2xl font-black text-orange-300">ATS {tailor.ats_score}%</div><p className="mt-2 text-sm">Missing keywords: {tailor.missing_keywords.join(', ') || 'None obvious'}</p><p className="mt-2 whitespace-pre-wrap text-sm text-slate-300">{tailor.suggestions}</p></div>}</Section>
+      <Section title="Job-targeted resume mode" sectionKey="ats" data={data} setData={setData}><textarea className="input h-32" placeholder="Paste job description" value={job} onChange={e => setJob(e.target.value)} /><button className="btn btn-primary mt-2" onClick={analyze}><Sparkles className="mr-1 inline h-4 w-4" />Analyze ATS Fit</button>{tailor && <div className="mt-3 rounded-xl bg-black/30 p-3"><div className="text-2xl font-black text-orange-300">ATS {tailor.ats_score}%</div><p className="mt-2 text-sm">Missing keywords: {tailor.missing_keywords.join(', ') || 'None obvious'}</p><p className="mt-2 whitespace-pre-wrap text-sm text-slate-300">{tailor.suggestions}</p></div>}</Section>
     </section>
-    <section className="pdf-preview-panel overflow-auto scrollbar"><PdfPreview data={data} template={template} /></section>
+    <section className="pdf-preview-panel overflow-auto scrollbar"><PdfPreview data={prepareResumeForRender(data)} template={template} /></section>
   </div>
 }
-function Section({ title, children }) { return <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4"><h3 className="mb-3 font-black text-orange-300">{title}</h3>{children}</div> }
+function Section({ title, children, sectionKey = '', data = null, setData = null, hideable = true }) {
+  const editable = sectionKey && data && setData
+  const hidden = editable && sectionHidden(data, sectionKey)
+  const shownTitle = editable ? sectionTitle(data, sectionKey, title) : title
+  return <div className={`mt-5 rounded-2xl border ${hidden ? 'border-yellow-400/30 bg-yellow-500/5' : 'border-white/10 bg-black/20'} p-4`}>
+    <div className="mb-3 flex items-center justify-between gap-3">
+      {editable ? <input className="section-title-input" value={shownTitle} onChange={e => setSectionMeta(data, setData, sectionKey, { title: e.target.value })} title="Rename section" /> : <h3 className="font-black text-orange-300">{title}</h3>}
+      {editable && hideable && <button className="btn btn-compact" onClick={() => setSectionMeta(data, setData, sectionKey, { hidden: !hidden })} title={hidden ? 'Show section in preview/export' : 'Hide section from preview/export'}>{hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}{hidden ? 'Hidden' : 'Visible'}</button>}
+    </div>
+    {hidden ? <div className="rounded-xl border border-yellow-400/20 bg-black/20 p-3 text-sm text-yellow-200">Hidden from preview and export. Controls remain here so you can resurrect it when sanity returns.</div> : children}
+  </div>
+}
 function Input({ label, v, on, type = 'text' }) { return <label className="mb-2 block text-sm text-slate-400">{label}<input type={type} className="input mt-1" value={v || ''} onChange={e => on(e.target.value)} /></label> }
 function RichText({ value, onChange }) { return <div><div className="mb-2 flex gap-2"><button className="btn" onMouseDown={e => { e.preventDefault(); document.execCommand('bold') }}>Bold</button><button className="btn" onMouseDown={e => { e.preventDefault(); document.execCommand('italic') }}>Italic</button></div><div className="input min-h-28" contentEditable suppressContentEditableWarning dangerouslySetInnerHTML={{ __html: value || '' }} onBlur={e => onChange(e.currentTarget.innerHTML)} /></div> }
-function List({ title, items, setItems, rich = false }) { const update = (i, v) => setItems(items.map((x, n) => n === i ? v : x)); const move = (i, d) => { const a = [...items], j = i + d; if (j < 0 || j >= a.length) return;[a[i], a[j]] = [a[j], a[i]]; setItems(a) }; return <Section title={title}>{items.map((x, i) => <div className="mb-2 flex gap-2" key={i}>{rich ? <div className="flex-1"><RichText value={x} onChange={v => update(i, v)} /></div> : <textarea className="input h-16" value={x} onChange={e => update(i, e.target.value)} />}<button className="btn" onClick={() => move(i, -1)}>↑</button><button className="btn" onClick={() => move(i, 1)}>↓</button><button className="btn" onClick={() => setItems(items.filter((_, n) => n !== i))}>×</button></div>)}<button className="btn" onClick={() => setItems([...items, ''])}><Plus className="mr-1 inline h-4 w-4" />Add</button></Section> }
-function Skills({ data, setData }) { const rows = normalizeSkillRows(data.skills); const setCell = (i, j, v) => { const r = rows.map(row => [...row]); r[i][j] = v; setData({ ...data, skills: r }) }; const addChip = (i, v) => { if (!v.trim()) return; const r = rows.map(row => [...row]); const idx = r[i].findIndex(x => !x); if (idx >= 0) r[i][idx] = v.trim(); else r[i].push(v.trim()); setData({ ...data, skills: r.map(x => (x.concat(['', '', ''])).slice(0, 3)) }) }; return <Section title="Areas of Expertise"><p className="mb-3 text-sm text-slate-400">Edit chips or table cells. Three columns render in the preview. Blank cells no longer masquerade as competence.</p>{rows.map((row, i) => <div key={i} className="mb-3 rounded-xl bg-black/20 p-3"><div className="mb-2 flex flex-wrap gap-2">{row.filter(Boolean).map((chip, j) => <span key={j} className="rounded-full bg-orange-500/15 px-3 py-1 text-sm text-orange-200">{chip}<button className="ml-2" onClick={() => setCell(i, j, '')}>×</button></span>)}</div><div className="grid gap-2 md:grid-cols-3">{[0, 1, 2].map(j => <input key={j} className="input" placeholder={`Column ${j + 1}`} value={row[j] || ''} onChange={e => setCell(i, j, e.target.value)} />)}</div><div className="mt-2 flex gap-2"><input className="input" placeholder="Add chip" onKeyDown={e => { if (e.key === 'Enter') { addChip(i, e.currentTarget.value); e.currentTarget.value = '' } }} /><button className="btn" onClick={() => setData({ ...data, skills: rows.filter((_, n) => n !== i) })}>Remove row</button></div></div>)}<button className="btn" onClick={() => setData({ ...data, skills: [...rows, ['', '', '']] })}>Add expertise row</button></Section> }
-function Technical({ data, setData }) { const entries = Object.entries(data.technical || {}); const update = (oldK, k, v) => { const t = { ...data.technical }; delete t[oldK]; t[k] = v; setData({ ...data, technical: t }) }; return <Section title="Technical Proficiencies">{entries.map(([k, v]) => <div className="mb-2 grid gap-2 md:grid-cols-[160px_1fr_auto]" key={k}><input className="input" value={k} onChange={e => update(k, e.target.value, v)} /><input className="input" value={v} onChange={e => update(k, k, e.target.value)} /><button className="btn" onClick={() => { const t = { ...data.technical }; delete t[k]; setData({ ...data, technical: t }) }}>×</button></div>)}<button className="btn" onClick={() => setData({ ...data, technical: { ...(data.technical || {}), Category: '' } })}>Add proficiency</button></Section> }
-function Experience({ data, setData }) { const jobs = data.experience || []; const setJobs = experience => setData({ ...data, experience }); const [drag, setDrag] = useState(null); const moveJob = (from, to) => { if (from === null || to === null || from === to) return; const a = [...jobs]; const [x] = a.splice(from, 1); a.splice(to, 0, x); setJobs(a) }; return <Section title="Career Experience">{jobs.map((j, idx) => <div key={idx} draggable onDragStart={() => setDrag(idx)} onDragOver={e => e.preventDefault()} onDrop={() => moveJob(drag, idx)} className="mb-5 rounded-xl bg-black/20 p-3"><div className="mb-2 cursor-move text-xs uppercase tracking-[.2em] text-slate-500">Drag position #{idx + 1}</div><div className="grid gap-2 md:grid-cols-2"><Input label="Title" v={j.title} on={v => { const a = [...jobs]; a[idx].title = v; setJobs(a) }} /><Input label="Company" v={j.company} on={v => { const a = [...jobs]; a[idx].company = v; setJobs(a) }} /><Input label="Location" v={j.location} on={v => { const a = [...jobs]; a[idx].location = v; setJobs(a) }} /><Input label="Start date" type="month" v={j.start_date} on={v => { const a = [...jobs]; a[idx].start_date = v; a[idx].dates = `${v || ''} – ${a[idx].end_date || ''}`; setJobs(a) }} /><Input label="End date" type="month" v={j.end_date} on={v => { const a = [...jobs]; a[idx].end_date = v; a[idx].dates = `${a[idx].start_date || ''} – ${v || ''}`; setJobs(a) }} /></div><List title="Bullet points" rich items={j.bullets || []} setItems={items => { const a = [...jobs]; a[idx].bullets = items; setJobs(a) }} /><button className="btn" onClick={() => setJobs(jobs.filter((_, n) => n !== idx))}>Remove Position</button></div>)}<button className="btn" onClick={() => setJobs([...jobs, { title: '', company: '', location: '', start_date: '', end_date: '', dates: '', bullets: [''] }])}>Add Position</button></Section> }
-function Education({ data, setData }) { const items = data.education || []; return <Section title="Education">{items.map((e, i) => <div className="mb-3 grid gap-2 md:grid-cols-3" key={i}><input className="input" placeholder="Degree" value={e.degree || ''} onChange={ev => { const a = [...items]; a[i].degree = ev.target.value; setData({ ...data, education: a }) }} /><input className="input" placeholder="School" value={e.school || ''} onChange={ev => { const a = [...items]; a[i].school = ev.target.value; setData({ ...data, education: a }) }} /><input className="input" placeholder="Details" value={e.details || ''} onChange={ev => { const a = [...items]; a[i].details = ev.target.value; setData({ ...data, education: a }) }} /></div>)}<button className="btn" onClick={() => setData({ ...data, education: [...items, { degree: '', school: '', details: '' }] })}>Add Education</button></Section> }
-function CustomSections({ data, setData }) { const sections = data.custom_sections || []; return <Section title="Custom Sections">{sections.map((s, i) => <div className="mb-4 rounded-xl bg-black/20 p-3" key={i}><Input label="Section title" v={s.title} on={v => { const a = [...sections]; a[i].title = v; setData({ ...data, custom_sections: a }) }} /><List title="Bullets" items={s.bullets || []} setItems={items => { const a = [...sections]; a[i].bullets = items; setData({ ...data, custom_sections: a }) }} /><button className="btn" onClick={() => setData({ ...data, custom_sections: sections.filter((_, n) => n !== i) })}>Remove Custom Section</button></div>)}<button className="btn" onClick={() => setData({ ...data, custom_sections: [...sections, { title: 'Custom Section', bullets: [''] }] })}>Add Custom Section</button></Section> }
+function List({ title, items, setItems, rich = false, sectionKey = '', data = null, setData = null }) { const update = (i, v) => setItems(items.map((x, n) => n === i ? v : x)); const move = (i, d) => { const a = [...items], j = i + d; if (j < 0 || j >= a.length) return;[a[i], a[j]] = [a[j], a[i]]; setItems(a) }; return <Section title={title} sectionKey={sectionKey} data={data} setData={setData}>{items.map((x, i) => <div className="mb-2 flex gap-2" key={i}>{rich ? <div className="flex-1"><RichText value={x} onChange={v => update(i, v)} /></div> : <textarea className="input h-16" value={x} onChange={e => update(i, e.target.value)} />}<button className="btn" onClick={() => move(i, -1)}>↑</button><button className="btn" onClick={() => move(i, 1)}>↓</button><button className="btn" onClick={() => setItems(items.filter((_, n) => n !== i))}>×</button></div>)}<button className="btn" onClick={() => setItems([...items, ''])}><Plus className="mr-1 inline h-4 w-4" />Add</button></Section> }
+function Skills({ data, setData }) { const rows = normalizeSkillRows(data.skills); const setCell = (i, j, v) => { const r = rows.map(row => [...row]); r[i][j] = v; setData({ ...data, skills: r }) }; const addChip = (i, v) => { if (!v.trim()) return; const r = rows.map(row => [...row]); const idx = r[i].findIndex(x => !x); if (idx >= 0) r[i][idx] = v.trim(); else r[i].push(v.trim()); setData({ ...data, skills: r.map(x => (x.concat(['', '', ''])).slice(0, 3)) }) }; return <Section title="Areas of Expertise" sectionKey="skills" data={data} setData={setData}><p className="mb-3 text-sm text-slate-400">Edit chips or table cells. Three columns render in the preview. Blank cells no longer masquerade as competence.</p>{rows.map((row, i) => <div key={i} className="mb-3 rounded-xl bg-black/20 p-3"><div className="mb-2 flex flex-wrap gap-2">{row.filter(Boolean).map((chip, j) => <span key={j} className="rounded-full bg-orange-500/15 px-3 py-1 text-sm text-orange-200">{chip}<button className="ml-2" onClick={() => setCell(i, j, '')}>×</button></span>)}</div><div className="grid gap-2 md:grid-cols-3">{[0, 1, 2].map(j => <input key={j} className="input" placeholder={`Column ${j + 1}`} value={row[j] || ''} onChange={e => setCell(i, j, e.target.value)} />)}</div><div className="mt-2 flex gap-2"><input className="input" placeholder="Add chip" onKeyDown={e => { if (e.key === 'Enter') { addChip(i, e.currentTarget.value); e.currentTarget.value = '' } }} /><button className="btn" onClick={() => setData({ ...data, skills: rows.filter((_, n) => n !== i) })}>Remove row</button></div></div>)}<button className="btn" onClick={() => setData({ ...data, skills: [...rows, ['', '', '']] })}>Add expertise row</button></Section> }
+function Technical({ data, setData }) { const entries = Object.entries(data.technical || {}); const update = (oldK, k, v) => { const t = { ...data.technical }; delete t[oldK]; t[k] = v; setData({ ...data, technical: t }) }; return <Section title="Technical Proficiencies" sectionKey="technical" data={data} setData={setData}>{entries.map(([k, v]) => <div className="mb-2 grid gap-2 md:grid-cols-[160px_1fr_auto]" key={k}><input className="input" value={k} onChange={e => update(k, e.target.value, v)} /><input className="input" value={v} onChange={e => update(k, k, e.target.value)} /><button className="btn" onClick={() => { const t = { ...data.technical }; delete t[k]; setData({ ...data, technical: t }) }}>×</button></div>)}<button className="btn" onClick={() => setData({ ...data, technical: { ...(data.technical || {}), Category: '' } })}>Add proficiency</button></Section> }
+function Experience({ data, setData }) { const jobs = data.experience || []; const setJobs = experience => setData({ ...data, experience }); const [drag, setDrag] = useState(null); const moveJob = (from, to) => { if (from === null || to === null || from === to) return; const a = [...jobs]; const [x] = a.splice(from, 1); a.splice(to, 0, x); setJobs(a) }; return <Section title="Career Experience" sectionKey="experience" data={data} setData={setData}>{jobs.map((j, idx) => <div key={idx} draggable onDragStart={() => setDrag(idx)} onDragOver={e => e.preventDefault()} onDrop={() => moveJob(drag, idx)} className="mb-5 rounded-xl bg-black/20 p-3"><div className="mb-2 cursor-move text-xs uppercase tracking-[.2em] text-slate-500">Drag position #{idx + 1}</div><div className="grid gap-2 md:grid-cols-2"><Input label="Title" v={j.title} on={v => { const a = [...jobs]; a[idx].title = v; setJobs(a) }} /><Input label="Company" v={j.company} on={v => { const a = [...jobs]; a[idx].company = v; setJobs(a) }} /><Input label="Location" v={j.location} on={v => { const a = [...jobs]; a[idx].location = v; setJobs(a) }} /><Input label="Start date" type="month" v={j.start_date} on={v => { const a = [...jobs]; a[idx].start_date = v; a[idx].dates = `${v || ''} – ${a[idx].end_date || ''}`; setJobs(a) }} /><Input label="End date" type="month" v={j.end_date} on={v => { const a = [...jobs]; a[idx].end_date = v; a[idx].dates = `${a[idx].start_date || ''} – ${v || ''}`; setJobs(a) }} /></div><List title="Bullet points" rich items={j.bullets || []} setItems={items => { const a = [...jobs]; a[idx].bullets = items; setJobs(a) }} /><button className="btn" onClick={() => setJobs(jobs.filter((_, n) => n !== idx))}>Remove Position</button></div>)}<button className="btn" onClick={() => setJobs([...jobs, { title: '', company: '', location: '', start_date: '', end_date: '', dates: '', bullets: [''] }])}>Add Position</button></Section> }
+function Education({ data, setData }) { const items = data.education || []; return <Section title="Education" sectionKey="education" data={data} setData={setData}>{items.map((e, i) => <div className="mb-3 grid gap-2 md:grid-cols-3" key={i}><input className="input" placeholder="Degree" value={e.degree || ''} onChange={ev => { const a = [...items]; a[i].degree = ev.target.value; setData({ ...data, education: a }) }} /><input className="input" placeholder="School" value={e.school || ''} onChange={ev => { const a = [...items]; a[i].school = ev.target.value; setData({ ...data, education: a }) }} /><input className="input" placeholder="Details" value={e.details || ''} onChange={ev => { const a = [...items]; a[i].details = ev.target.value; setData({ ...data, education: a }) }} /></div>)}<button className="btn" onClick={() => setData({ ...data, education: [...items, { degree: '', school: '', details: '' }] })}>Add Education</button></Section> }
+function CustomSections({ data, setData }) { const sections = data.custom_sections || []; return <Section title="Custom Sections" sectionKey="custom_sections" data={data} setData={setData}>{sections.map((s, i) => <div className="mb-4 rounded-xl bg-black/20 p-3" key={i}><div className="mb-2 flex items-center gap-2"><Input label="Section title" v={s.title} on={v => { const a = [...sections]; a[i].title = v; setData({ ...data, custom_sections: a }) }} /><button className="btn mt-5" onClick={() => { const a = [...sections]; a[i].hidden = !a[i].hidden; setData({ ...data, custom_sections: a }) }}>{s.hidden ? <EyeOff className="mr-1 inline h-4 w-4" /> : <Eye className="mr-1 inline h-4 w-4" />}{s.hidden ? 'Hidden' : 'Visible'}</button></div><List title="Bullets" items={s.bullets || []} setItems={items => { const a = [...sections]; a[i].bullets = items; setData({ ...data, custom_sections: a }) }} /><button className="btn" onClick={() => setData({ ...data, custom_sections: sections.filter((_, n) => n !== i) })}>Remove Custom Section</button></div>)}<button className="btn" onClick={() => setData({ ...data, custom_sections: [...sections, { title: 'Custom Section', bullets: [''] }] })}>Add Custom Section</button></Section> }
 
 async function downloadResume(data, template, fmt) {
   const r = await fetch(`/api/resumes/export/${fmt}`, {
@@ -175,12 +211,12 @@ async function downloadResume(data, template, fmt) {
 }
 
 function PdfPreview({ data, template }) {
-  const [url, setUrl] = useState('')
-  const [zoom, setZoom] = useState(100)
+  const [pdfData, setPdfData] = useState(null)
+  const [zoom, setZoom] = useState(1.35)
   const [state, setState] = useState('Rendering PDF preview...')
+  const canvasRef = useRef(null)
   useEffect(() => {
     let cancelled = false
-    let oldUrl = ''
     const handle = setTimeout(async () => {
       setState('Regenerating PDF preview...')
       try {
@@ -190,32 +226,53 @@ function PdfPreview({ data, template }) {
           body: JSON.stringify({ data, template, name: data?.contact?.name || 'resume' })
         })
         if (!r.ok) throw new Error(await r.text())
-        const blob = await r.blob()
-        const next = URL.createObjectURL(blob)
-        if (cancelled) { URL.revokeObjectURL(next); return }
-        setUrl(prev => { oldUrl = prev; return next })
-        setState('PDF preview is live. This is the generated PDF, not a CSS impersonation.')
-        if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 500)
+        const bytes = await r.arrayBuffer()
+        if (!cancelled) { setPdfData(bytes); setState('PDF.js canvas preview. No thumbnails. No iframe. Civilization advances slowly.') }
       } catch (e) {
         if (!cancelled) setState(`PDF preview failed: ${e.message || e}`)
       }
-    }, 2000)
+    }, 900)
     return () => { cancelled = true; clearTimeout(handle) }
   }, [JSON.stringify(data), template])
-  const frameSrc = url ? `${url}#zoom=${zoom}&toolbar=1&navpanes=0&scrollbar=1` : ''
+
+  useEffect(() => {
+    if (!pdfData || !canvasRef.current) return
+    let cancelled = false
+    const task = pdfjsLib.getDocument({ data: pdfData.slice(0) })
+    task.promise.then(async pdf => {
+      const page = await pdf.getPage(1)
+      if (cancelled) return
+      const container = canvasRef.current.parentElement
+      const baseViewport = page.getViewport({ scale: 1 })
+      const available = Math.max(820, (container?.clientWidth || 900) - 28)
+      const fitScale = available / baseViewport.width
+      const viewport = page.getViewport({ scale: fitScale * zoom })
+      const canvas = canvasRef.current
+      const context = canvas.getContext('2d')
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = Math.floor(viewport.width * dpr)
+      canvas.height = Math.floor(viewport.height * dpr)
+      canvas.style.width = `${Math.floor(viewport.width)}px`
+      canvas.style.height = `${Math.floor(viewport.height)}px`
+      context.setTransform(dpr, 0, 0, dpr, 0, 0)
+      await page.render({ canvasContext: context, viewport }).promise
+    }).catch(e => !cancelled && setState(`PDF.js render failed: ${e.message || e}`))
+    return () => { cancelled = true; task.destroy() }
+  }, [pdfData, zoom])
+
   return <div className="pdf-preview-shell">
-    <div className="pdf-preview-toolbar mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-400">
+    <div className="pdf-preview-toolbar sticky top-0 z-10 mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-300">
       <span>{state}</span>
       <div className="flex flex-wrap items-center gap-2">
-        <button className="btn" onClick={() => setZoom(z => Math.max(75, z - 25))}>−</button>
-        <span className="pdf-zoom-label">{zoom}%</span>
-        <button className="btn" onClick={() => setZoom(z => Math.min(200, z + 25))}>+</button>
-        <button className="btn" onClick={() => setZoom(100)}>100%</button>
+        <button className="btn" onClick={() => setZoom(z => Math.max(0.75, +(z - 0.15).toFixed(2)))}>−</button>
+        <span className="pdf-zoom-label">{Math.round(zoom * 100)}%</span>
+        <button className="btn" onClick={() => setZoom(z => Math.min(2.25, +(z + 0.15).toFixed(2)))}>+</button>
+        <button className="btn" onClick={() => setZoom(1.35)}>Readable</button>
         <button className="btn" onClick={() => downloadResume(data, template, 'docx')}>Download DOCX</button>
         <button className="btn" onClick={() => downloadResume(data, template, 'pdf')}>Download PDF</button>
       </div>
     </div>
-    {url ? <iframe className="pdf-preview-frame" title="Generated PDF resume preview" src={frameSrc} /> : <div className="pdf-preview-placeholder">Waiting for server-generated PDF. Patience, unfortunately.</div>}
+    <div className="pdf-canvas-stage">{pdfData ? <canvas ref={canvasRef} className="pdf-preview-canvas" /> : <div className="pdf-preview-placeholder">Waiting for server-generated PDF. Patience, unfortunately.</div>}</div>
   </div>
 }
 
