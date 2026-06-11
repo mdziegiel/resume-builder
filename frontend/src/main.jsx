@@ -157,40 +157,40 @@ function Editable({ children, onSave, className = '', tag: Tag = 'span' }) { ret
 function ResumePreview({ data, setData = () => {}, template }) {
   const placeholderResume = {
     contact: {
-      name: 'MICHAEL DZIEGIEL',
-      title: 'Senior Network Administrator / IT Infrastructure Leader',
-      email: 'email@example.com',
-      phone: '(555) 555-0123',
-      linkedin: 'linkedin.com/in/your-profile',
+      name: 'Alex Johnson',
+      title: 'Senior IT Professional',
+      email: 'alex.johnson@email.com',
+      phone: '(555) 555-0100',
+      linkedin: 'linkedin.com/in/alexjohnson',
       portfolio: 'portfolio.example.com',
-      location: 'Lowell, MA'
+      location: 'Boston, MA'
     },
-    summary: 'Senior technology professional with 20+ years of experience designing, securing, and supporting enterprise infrastructure, Microsoft endpoint environments, networks, cloud services, and business-critical systems. Recognized for practical troubleshooting, disciplined documentation, stakeholder support, and reliable execution in high-availability environments.',
+    summary: 'Senior IT professional with extensive experience supporting secure infrastructure, cloud services, Microsoft 365 environments, endpoint platforms, and business-critical systems. Known for practical troubleshooting, clear documentation, stakeholder support, and dependable execution across complex technology environments.',
     skills: [
-      ['Network Administration', 'Microsoft 365 / Entra ID', 'Active Directory / GPO'],
-      ['Intune / Endpoint Management', 'Firewall / VPN', 'Windows Server'],
-      ['Security Monitoring', 'Backup & Recovery', 'Vendor Management'],
-      ['PowerShell', 'Documentation', 'Executive Support']
+      ['Network Administration', 'Cloud Infrastructure', 'Microsoft 365'],
+      ['Active Directory', 'Endpoint Management', 'Security'],
+      ['PowerShell', 'Virtualization', 'Infrastructure Documentation']
     ],
     technical: {
-      'Platforms': 'Windows Server, Windows 10/11, Microsoft 365, Entra ID, Intune, SCCM, Azure, VMware, Proxmox',
-      'Networking': 'Cisco switching, VLANs, VPN, DNS, DHCP, firewalls, wireless, TCP/IP monitoring',
-      'Security': 'Endpoint hardening, MFA, conditional access, patching, SIEM review, incident response'
+      'Platforms': 'Windows Server, Windows 10/11, Microsoft 365, Azure, VMware, Hyper-V, cloud-hosted services',
+      'Administration': 'Active Directory, Group Policy, endpoint management, patching, backups, access control, documentation',
+      'Security': 'Endpoint protection, MFA, monitoring, vulnerability remediation, incident response, policy enforcement'
     },
     experience: [
-      { title: 'Senior Network Administrator', company: 'Enterprise Manufacturing Organization', location: 'Haverhill, MA', dates: '2025 – 2026', bullets: [
-        'Administered network, server, endpoint, Microsoft 365, and security infrastructure supporting production business operations.',
-        'Managed Active Directory, Group Policy, endpoint configuration, patching, backups, access control, and infrastructure documentation.',
-        'Improved reliability and security posture by resolving recurring technical risks and strengthening monitoring, standards, and support procedures.'
+      { title: 'Senior IT Systems Administrator', company: 'Northbridge Technology Group', location: 'Boston, MA', dates: '2022 – Present', bullets: [
+        'Administer secure network, server, Microsoft 365, and endpoint infrastructure supporting daily business operations.',
+        'Maintain Active Directory, Group Policy, access controls, patching, backups, endpoint configuration, and technical documentation.',
+        'Improve reliability and security by resolving recurring infrastructure issues and standardizing operational procedures.'
       ] },
-      { title: 'Systems Analyst', company: 'Managed Technology Services Provider', location: 'Nashua, NH', dates: '2021 – 2025', bullets: [
-        'Delivered infrastructure support, Microsoft cloud administration, systems analysis, and escalated troubleshooting across client environments.',
-        'Created repeatable documentation and support processes that improved service consistency, onboarding, and operational handoff.'
+      { title: 'IT Infrastructure Specialist', company: 'Harborview Professional Services', location: 'Cambridge, MA', dates: '2019 – 2022', bullets: [
+        'Delivered infrastructure support, cloud administration, endpoint troubleshooting, and escalated technical resolution for multi-site users.',
+        'Supported network, virtualization, Microsoft 365, and security tools while coordinating upgrades and vendor-assisted projects.',
+        'Created repeatable support documentation that improved onboarding, troubleshooting consistency, and operational handoff.'
       ] }
     ],
-    education: [{ degree: 'Associate of Arts, Information Technology / Networking', school: 'University of Phoenix', details: 'GPA 3.97' }],
-    certifications: ['CCNA Coursework', 'A+ Certified Technician', 'Cyber Security Certificate'],
-    additional: ['Owner, MRDTech — IT consulting, infrastructure operations, endpoint management, security monitoring, and self-hosted systems administration.'],
+    education: [{ degree: 'Bachelor of Science, Information Technology', school: 'Northeastern State College', details: 'Boston, MA' }],
+    certifications: ['CompTIA Network+', 'Microsoft 365 Fundamentals', 'Azure Fundamentals'],
+    additional: ['Selected projects include endpoint modernization, Microsoft 365 administration, network documentation, cloud migration support, and security policy improvements.'],
     custom_sections: []
   }
   const hasText = (v) => String(v || '').replace(/<[^>]+>/g, '').trim().length > 0
