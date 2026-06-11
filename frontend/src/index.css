@@ -26,109 +26,132 @@ body { margin: 0; background: radial-gradient(circle at 15% 0%, rgba(249,115,22,
 .template-thumb.resume-corporate .thumb-header { margin: -18px -18px 16px; height: 52px; background: linear-gradient(135deg,#071832,#1d4ed8); }
 .template-thumb.resume-ats-optimized .thumb-header, .template-thumb.resume-ats-optimized .thumb-section { background: #111827; height: 8px; }
 
-.resume-page { background: white; color: #111827; min-height: 1056px; width: 816px; max-width: 100%; margin: 0 auto; padding: 46px 52px; box-shadow: 0 30px 90px rgba(0,0,0,.45); font-size: 13.2px; line-height: 1.48; }
+.resume-page { background: #fff; color: #111827; min-height: 1056px; width: 816px; max-width: 100%; margin: 0 auto; padding: 46px 52px; box-shadow: 0 30px 90px rgba(0,0,0,.45); font-size: 13px; line-height: 1.45; }
 .letter-page { background: white; color: #111827; min-height: 1056px; width: 816px; max-width: 100%; margin: 0 auto; padding: 72px; box-shadow: 0 30px 90px rgba(0,0,0,.45); font-family: Georgia, 'Times New Roman', serif; }
+.resume-page * { box-sizing: border-box; }
+.resume-page p { margin: 0 0 7px; }
+.resume-page ul { margin: 7px 0 0 18px; padding: 0; }
+.resume-page li { margin: 0 0 5px; }
 .resume-page [contenteditable="true"] { outline: 1px dashed transparent; border-radius: 3px; min-height: 1em; }
 .resume-page [contenteditable="true"]:hover { outline-color: rgba(249,115,22,.45); background: rgba(249,115,22,.06); }
+.resume-placeholder { color: #4b5563; }
 .resume-header { margin-bottom: 20px; }
-.resume-header h1, .resume-sidebar h1 { margin: 0; line-height: 1.05; }
+.resume-header h1, .resume-sidebar h1 { margin: 0; line-height: 1.04; }
 .resume-title, .sidebar-title { margin-top: 5px; font-weight: 600; }
 .resume-contact p, .resume-contact-line { margin: 2px 0; }
-.resume-section-title { margin: 22px 0 8px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .16em; color: #f97316; }
-.skill-table { margin-top: 8px; table-layout: fixed; }
-.skill-table td { border: 0; padding: 5px 14px 5px 0; color: #1f2937; vertical-align: top; }
-.skill-table td::before { content: "•"; color: currentColor; margin-right: 7px; font-weight: 700; }
-.experience-entry { padding: 0; }
-.job-line { align-items: baseline; }
-.resume-sidebar-layout { padding: 0; display: grid; grid-template-columns: 30% 70%; gap: 0; overflow: hidden; }
+.resume-section { margin-top: 16px; }
+.resume-section-title { margin: 18px 0 8px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .16em; color: #f97316; }
+.skill-table { width: 100%; margin-top: 8px; table-layout: fixed; border-collapse: collapse; }
+.skill-table td { border: 0; padding: 4px 14px 4px 0; color: #1f2937; vertical-align: top; }
+.skill-table td::before { content: ""; display: inline-block; width: 4px; height: 4px; margin-right: 8px; border-radius: 999px; background: currentColor; vertical-align: middle; }
+.skill-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.skill-chips span { display: inline-block; border-radius: 999px; padding: 5px 9px; font-size: 11.5px; font-weight: 700; }
+.technical-list p { margin: 0 0 5px; }
+.experience-entry { margin: 0 0 14px; padding: 0; break-inside: avoid; }
+.job-line { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; font-size: 13px; }
+.job-line span { display: block; font-size: 12.3px; font-weight: 500; color: #4b5563; }
+.job-line time { white-space: nowrap; font-weight: 700; color: #374151; font-size: 12.2px; }
+.education-line b { font-weight: 800; }
+.resume-sidebar-layout { padding: 0; display: grid; gap: 0; overflow: hidden; }
 .resume-sidebar-layout .resume-sidebar { min-height: 1056px; padding: 42px 24px; }
-.resume-sidebar-layout .resume-main { padding: 42px 48px; }
-.resume-sidebar .resume-section-title { color: rgba(255,255,255,.8); border-color: rgba(255,255,255,.22); }
+.resume-sidebar-layout .resume-main { padding: 42px 48px; background: #fff; }
+.resume-sidebar .resume-contact p { word-break: break-word; }
+.resume-sidebar .resume-section-title { color: rgba(255,255,255,.82); border-color: rgba(255,255,255,.22); }
 .resume-sidebar .skill-table, .resume-sidebar .skill-table tbody, .resume-sidebar .skill-table tr, .resume-sidebar .skill-table td { display: block; width: 100%; }
 .resume-sidebar .skill-table td { color: rgba(255,255,255,.9); padding: 4px 0; }
 
-/* Classic: Harvard conservative, centered, Georgia, small caps, double rules. */
+/* Classic — centered serif, thin rule, small caps with bottom borders. */
 .resume-classic { font-family: Georgia, 'Times New Roman', serif; padding: 54px 64px; color: #111827; }
-.resume-classic .resume-header { text-align: center; border-bottom: 3px double #111827; padding-bottom: 16px; }
-.resume-classic .resume-header h1 { font-size: 35px; font-weight: 700; letter-spacing: .04em; text-transform: none; }
-.resume-classic .resume-title { font-size: 15px; color: #374151; }
-.resume-classic .resume-contact { text-align: center; color: #374151; font-size: 12.5px; }
+.resume-classic .resume-header { text-align: center; padding-bottom: 14px; border-bottom: 1px solid #1f2937; }
+.resume-classic .resume-header h1 { font-size: 31px; font-weight: 700; letter-spacing: .015em; }
+.resume-classic .resume-title { font-size: 15px; font-weight: 500; color: #374151; }
+.resume-classic .resume-contact { margin-top: 8px; text-align: center; color: #374151; font-size: 11.8px; }
 .resume-classic .resume-contact p { display: inline; }
 .resume-classic .resume-contact p:not(:empty)::after { content: "  |  "; }
 .resume-classic .resume-contact p:last-child::after { content: ""; }
-.resume-classic .resume-section-title { color: #111827; border-bottom: 3px double #111827; padding-bottom: 4px; letter-spacing: .18em; font-variant: small-caps; }
-.resume-classic .skill-table td::before { color: #111827; }
+.resume-classic .resume-section-title { color: #111827; border-bottom: 1px solid #9ca3af; padding-bottom: 4px; font-variant: small-caps; letter-spacing: .18em; }
+.resume-classic .skill-table td::before { background: #111827; }
 
-/* Modern: tech clean, left aligned, orange accent system. */
-.resume-modern { font-family: Inter, Arial, sans-serif; padding: 46px 54px; color: #162033; }
-.resume-modern .resume-header { border-bottom: 3px solid #f97316; padding-bottom: 14px; }
-.resume-modern .resume-header h1 { font-size: 38px; font-weight: 900; letter-spacing: -.03em; }
-.resume-modern .resume-title { color: #334155; font-size: 16px; }
-.resume-modern .resume-contact-line { color: #475569; font-size: 12.5px; }
-.resume-modern .resume-section-title { color: #172033; border-left: 5px solid #f97316; padding-left: 10px; letter-spacing: .18em; }
-.resume-modern .skill-table td::before { color: #f97316; }
+/* Modern — left aligned with orange title, full rule, left-border section accents. */
+.resume-modern { font-family: Inter, Arial, Helvetica, sans-serif; padding: 50px 58px; color: #162033; }
+.resume-modern .resume-header { border-bottom: 2px solid #f97316; padding-bottom: 16px; }
+.resume-modern .resume-header h1 { font-size: 35px; font-weight: 900; letter-spacing: -.035em; }
+.resume-modern .resume-title { color: #f97316; font-size: 16px; font-weight: 700; }
+.resume-modern .resume-contact-line { margin-top: 10px; color: #475569; font-size: 12.4px; }
+.resume-modern .resume-contact-line { word-spacing: 2px; }
+.resume-modern .resume-section-title { color: #172033; border-left: 4px solid #f97316; padding: 6px 0 6px 10px; letter-spacing: .14em; background: linear-gradient(90deg,#fff7ed,transparent); }
+.resume-modern .skill-table td::before { background: #f97316; }
 
-/* Executive: navy banner, all caps authority, full-width navy rules. */
-.resume-executive { font-family: Inter, Arial, sans-serif; padding: 0 58px 50px; color: #111827; }
-.resume-executive .resume-header { margin: 0 -58px 28px; padding: 32px 46px; display: grid; grid-template-columns: 1fr 230px; gap: 26px; align-items: center; background: #071832; color: white; }
-.resume-executive .resume-header h1 { font-size: 40px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
-.resume-executive .resume-title { color: #dbeafe; letter-spacing: .08em; text-transform: uppercase; }
-.resume-executive .resume-contact { color: #e5e7eb; text-align: right; font-size: 12px; }
-.resume-executive .resume-section-title { color: #071832; border-bottom: 3px solid #071832; padding-bottom: 5px; letter-spacing: .12em; }
-.resume-executive .skill-table td::before { color: #071832; }
+/* Executive — full navy header, right-aligned contact, navy + gold body. */
+.resume-executive { font-family: Inter, Arial, Helvetica, sans-serif; padding: 0 58px 50px; color: #111827; }
+.resume-executive .resume-header { margin: 0 -58px 28px; padding: 34px 46px; display: grid; grid-template-columns: 1fr 245px; gap: 26px; align-items: center; background: #0a1628; color: white; }
+.resume-executive .resume-header h1 { font-size: 39px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; }
+.resume-executive .resume-title { color: #93c5fd; letter-spacing: .06em; text-transform: uppercase; font-size: 13.5px; }
+.resume-executive .resume-contact { color: #f8fafc; text-align: right; font-size: 11.6px; line-height: 1.35; }
+.resume-executive .resume-section-title { color: #0a1628; border-bottom: 3px solid #c8a45d; padding-bottom: 5px; letter-spacing: .12em; }
+.resume-executive .job-line b { color: #0a1628; }
+.resume-executive .skill-table td::before { background: #c8a45d; }
 
-/* Technical: engineer two-column with charcoal sidebar and dense readable main content. */
-.resume-technical { font-family: Inter, Arial, sans-serif; font-size: 12.7px; color: #111827; grid-template-columns: 32% 68%; }
-.resume-technical .resume-sidebar { background: #111827; color: white; }
-.resume-technical .resume-sidebar h1 { font-size: 27px; font-weight: 900; letter-spacing: -.02em; }
+/* Technical — true 280px charcoal sidebar, white engineer main column. */
+.resume-technical { font-family: Inter, Arial, Helvetica, sans-serif; font-size: 12.5px; color: #111827; grid-template-columns: 280px 1fr; }
+.resume-technical .resume-sidebar { background: #1e293b; color: white; }
+.resume-technical .resume-sidebar h1 { font-size: 28px; font-weight: 900; letter-spacing: -.02em; }
 .resume-technical .sidebar-title { color: #93c5fd; }
-.resume-technical .resume-main { background: white; }
-.resume-technical .resume-section-title { color: #0f172a; border-left: 5px solid #38bdf8; background: #eff6ff; padding: 6px 0 6px 10px; letter-spacing: .12em; }
-.resume-technical .resume-sidebar .resume-section-title { background: transparent; border-left: 0; border-bottom: 1px solid rgba(255,255,255,.22); padding: 0 0 5px; color: #93c5fd; }
-.resume-technical b, .resume-technical .skill-table td { font-family: 'Courier New', monospace; }
-.resume-technical .skill-table td::before { color: #38bdf8; }
+.resume-technical .resume-main { padding: 42px 44px; }
+.resume-technical .resume-section-title { color: #0f172a; border-left: 4px solid #38bdf8; background: #f1f5f9; padding: 6px 0 6px 10px; letter-spacing: .12em; }
+.resume-technical .resume-sidebar .resume-section-title { background: transparent; border-left: 0; border-bottom: 1px solid rgba(255,255,255,.24); padding: 0 0 6px; color: #93c5fd; }
+.resume-technical .resume-sidebar .skill-chips span { background: rgba(148,163,184,.20); color: #f8fafc; border: 1px solid rgba(255,255,255,.12); }
+.resume-technical .technical-list b { font-family: 'Courier New', monospace; }
+.resume-technical .skill-table td::before { background: #38bdf8; }
 
-/* Minimal: design-forward, light weight, almost no ornament. */
-.resume-minimal { padding: 70px 78px; font-family: Inter, Arial, sans-serif; font-size: 12.8px; color: #222; }
+/* Minimal — monochrome, 80px sides, thin type and light dividers. */
+.resume-minimal { padding: 72px 80px; font-family: Inter, Arial, Helvetica, sans-serif; font-size: 12.7px; color: #111; }
 .resume-minimal .resume-header { border: none; padding-bottom: 18px; }
-.resume-minimal .resume-header h1 { font-size: 36px; font-weight: 300; letter-spacing: -.03em; }
-.resume-minimal .resume-title, .resume-minimal .resume-contact-line { color: #6b7280; font-weight: 300; }
-.resume-minimal .resume-section-title { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e5e7eb; color: #9ca3af; font-weight: 500; letter-spacing: .22em; }
-.resume-minimal .skill-table td { color: #374151; padding-left: 0; }
-.resume-minimal .skill-table td::before { color: #c08457; content: ""; margin: 0; }
+.resume-minimal .resume-header h1 { font-size: 36px; font-weight: 300; letter-spacing: -.035em; }
+.resume-minimal .resume-title, .resume-minimal .resume-contact-line { color: #111; font-weight: 300; }
+.resume-minimal .resume-section-title { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e5e7eb; color: #111; font-weight: 400; letter-spacing: .22em; }
+.resume-minimal .skill-table td { color: #111; padding-left: 0; }
+.resume-minimal .skill-table td::before { content: none; display: none; margin: 0; }
+.resume-minimal .job-line span, .resume-minimal .job-line time { color: #111; font-weight: 300; }
 
-/* Two-column: European CV, strong dark rail, chips/tags in sidebar. */
-.resume-two-column { font-family: Inter, Arial, sans-serif; font-size: 12.9px; color: #1f2937; }
-.resume-two-column .resume-sidebar { background: #243447; color: white; }
-.resume-two-column .resume-sidebar h1 { font-size: 30px; font-weight: 800; }
-.resume-two-column .sidebar-title { color: #cbd5e1; }
-.resume-two-column .resume-main { background: white; }
-.resume-two-column .resume-section-title { color: #243447; border-bottom: 2px solid #d6a85b; padding-bottom: 4px; }
-.resume-two-column .resume-sidebar .resume-section-title { color: #f2cc8f; border-bottom: 1px solid rgba(242,204,143,.55); }
-.resume-two-column .resume-sidebar .skill-table td { display: inline-block; width: auto; margin: 3px 3px 3px 0; padding: 5px 8px; border-radius: 999px; background: rgba(255,255,255,.12); }
-.resume-two-column .resume-sidebar .skill-table td::before { content: ""; margin: 0; }
+/* Two-Column — European CV: 30% light sidebar, icon-like contact rows, skill pills. */
+.resume-two-column { font-family: Inter, Arial, Helvetica, sans-serif; font-size: 12.8px; color: #1f2937; grid-template-columns: 30% 70%; }
+.resume-two-column .resume-sidebar { background: #f8fafc; color: #0f172a; border-right: 1px solid #e2e8f0; }
+.resume-two-column .resume-sidebar h1 { font-size: 27px; font-weight: 900; letter-spacing: -.03em; }
+.resume-two-column .sidebar-title { color: #475569; }
+.resume-two-column .resume-contact p { position: relative; padding-left: 22px; color: #334155; font-size: 11.8px; }
+.resume-two-column .resume-contact p::before { content: ""; position: absolute; left: 2px; top: 6px; width: 6px; height: 6px; border-radius: 999px; background: #64748b; }
+.resume-two-column .resume-section-title { color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 4px; }
+.resume-two-column .resume-sidebar .resume-section-title { color: #0f172a; border-bottom: 1px solid #cbd5e1; }
+.resume-two-column .resume-sidebar .skill-chips span { background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; }
+.resume-two-column .resume-main .skill-chips span { background: #f1f5f9; color: #0f172a; }
+.resume-two-column .skill-table td::before { background: #64748b; }
 
-/* Corporate: consulting/finance polish with gradient header and alternating entries. */
-.resume-corporate { padding: 0 52px 48px; font-family: Inter, Arial, sans-serif; color: #172033; }
-.resume-corporate .resume-header { margin: 0 -52px 30px; padding: 36px 52px 32px; background: linear-gradient(135deg,#06152e,#123b70 58%,#1d4ed8); color: white; }
+/* Corporate — centered gradient header, gold accent, alternating experience rows. */
+.resume-corporate { padding: 0 52px 48px; font-family: Inter, Arial, Helvetica, sans-serif; color: #172033; }
+.resume-corporate .resume-header { margin: 0 -52px 28px; padding: 34px 52px 28px; background: linear-gradient(135deg,#0f172a,#1e3a5f); color: white; text-align: center; border-bottom: 5px solid #c8a45d; }
 .resume-corporate .resume-header h1 { font-size: 36px; font-weight: 900; letter-spacing: -.02em; }
 .resume-corporate .resume-title, .resume-corporate .resume-contact { color: #e5e7eb; }
-.resume-corporate .resume-section-title { color: #0f2d52; border-bottom: 2px solid #0f2d52; padding-bottom: 5px; position: relative; }
-.resume-corporate .resume-section-title::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: #1d4ed8; }
+.resume-corporate .resume-contact p { display: inline; font-size: 11.7px; }
+.resume-corporate .resume-contact p:not(:empty)::after { content: "  |  "; color: #c8a45d; }
+.resume-corporate .resume-contact p:last-child::after { content: ""; }
+.resume-corporate .resume-section-title { color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 5px; font-weight: 900; }
 .resume-corporate .experience-entry { padding: 10px 12px; margin-left: -12px; margin-right: -12px; border-radius: 4px; }
-.resume-corporate .experience-entry:nth-of-type(even) { background: #f3f4f6; }
-.resume-corporate .skill-table td::before { color: #1d4ed8; }
+.resume-corporate .experience-entry:nth-child(even) { background: #f9fafb; }
+.resume-corporate .skill-table td::before { background: #c8a45d; }
 
-/* ATS: plain text, no columns, no colors, no graphics, no table rendering. */
-.resume-ats-optimized { font-family: Arial, Helvetica, sans-serif; box-shadow: none; padding: 42px 54px; font-size: 12.5px; line-height: 1.38; color: #000; }
-.resume-ats-optimized .resume-header { border: none; margin-bottom: 14px; }
-.resume-ats-optimized .resume-header h1 { font-size: 28px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+/* ATS-Optimized — plain Arial, no columns/colors/graphics, professionally formatted. */
+.resume-ats-optimized { font-family: Arial, Helvetica, sans-serif; box-shadow: none; padding: 42px 54px; font-size: 12.2px; line-height: 1.34; color: #000; }
+.resume-ats-optimized .resume-header { border: none; margin-bottom: 12px; }
+.resume-ats-optimized .resume-header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0; text-transform: none; }
 .resume-ats-optimized .resume-title, .resume-ats-optimized .resume-contact-line { color: #000; font-weight: 400; }
-.resume-ats-optimized .resume-section-title, .resume-ats-optimized .ats-heading { color: #000; border: none; padding: 0; margin-top: 16px; font-size: 14px; letter-spacing: 0; text-transform: uppercase; }
+.resume-ats-optimized .resume-section-title, .resume-ats-optimized .ats-heading { color: #000; border-bottom: 1px solid #000; padding: 0 0 2px; margin: 14px 0 6px; font-size: 12.5px; letter-spacing: 0; text-transform: uppercase; }
 .resume-ats-optimized .skill-table, .resume-ats-optimized .skill-table tbody, .resume-ats-optimized .skill-table tr, .resume-ats-optimized .skill-table td { display: block; border: none; padding: 0; }
-.resume-ats-optimized .skill-table td::before { content: "- "; color: #000; }
-.resume-ats-optimized ul { list-style-type: none; margin-left: 0; padding-left: 0; }
-.resume-ats-optimized li::before { content: "- "; }
+.resume-ats-optimized .skill-table td::before { content: none; display: none; margin: 0; }
+.resume-ats-optimized ul { list-style-type: disc; margin-left: 18px; padding-left: 0; }
+.resume-ats-optimized .job-line { display: block; }
+.resume-ats-optimized .job-line time { display: block; color: #000; font-weight: 400; }
+.resume-ats-optimized .job-line span { color: #000; }
 .scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
 .scrollbar::-webkit-scrollbar-track { background: #111827; }
 .scrollbar::-webkit-scrollbar-thumb { background: #f97316; border-radius: 999px; }

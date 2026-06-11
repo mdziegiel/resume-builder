@@ -619,6 +619,6 @@ def letter_export_response(fmt: str, title: str, content: str):
         return Response(buf.getvalue(), media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename={safe}.pdf'})
     raise HTTPException(400, 'fmt must be docx or pdf')
 
-static_dir = Path('/app/frontend-dist')
+static_dir = Path(os.getenv('FRONTEND_DIST_DIR', '/app/frontend-dist'))
 if static_dir.exists():
     app.mount('/', StaticFiles(directory=static_dir, html=True), name='static')

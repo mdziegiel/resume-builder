@@ -11,6 +11,16 @@ const api = async (path, options = {}) => {
   return r.json()
 }
 const templates = ['classic', 'modern', 'executive', 'technical', 'minimal', 'two-column', 'corporate', 'ats-optimized']
+const templateMeta = {
+  classic: ['Traditional Serif', 'ResumeGenius / Harvard-style conservative format'],
+  modern: ['Modern Accent', 'Novorésumé-style clean tech layout with restrained color'],
+  executive: ['Executive Header', 'Zety-style authority header for senior leadership roles'],
+  technical: ['Technical Sidebar', 'Novorésumé IT layout with dense skills sidebar'],
+  minimal: ['Minimalist', 'Canva-style airy monochrome typography'],
+  'two-column': ['Two-Column CV', 'Resume.io-style structured sidebar and scannable main column'],
+  corporate: ['Corporate Consultant', 'Finance/consulting polish with navy and gold accents'],
+  'ats-optimized': ['ATS Optimized', 'LinkedIn/plain parser-safe professional layout']
+}
 const blankResume = {
   contact: { name: '', title: '', email: '', phone: '', linkedin: '', portfolio: '', location: '' },
   summary: '', skills: [['', '', '']], technical: {}, experience: [], education: [], certifications: [], additional: [], custom_sections: []
@@ -87,12 +97,12 @@ function EmptyEditor({ setCurrent, setPage, reload }) { return <TemplatePicker s
 
 function TemplatePicker({ setCurrent, setPage, reload }) {
   function create(template) { setCurrent({ id: null, name: '', title: '', template, data: cloneBlankResume(), isDraft: true }); setPage('editor') }
-  return <div className="glass p-6"><div className="mb-6 flex items-center justify-between"><div><h2 className="text-3xl font-black">Blank Resume — choose a template</h2><p className="text-slate-400">Starts completely blank. Nothing is saved until you hit Save. Radical concept.</p></div><button className="btn" onClick={() => setPage('dashboard')}>Back to Dashboard</button></div><div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">{templates.map(t => <button key={t} onClick={() => create(t)} className="glass p-4 text-left hover:border-orange-400"><div className="mb-3 text-xs uppercase tracking-[.2em] text-orange-300">{t}</div><div className={`template-thumb resume-${t}`}><div className="thumb-header"></div><div className="thumb-line w-4/5"></div><div className="thumb-line w-3/5"></div><div className="thumb-section"></div><div className="thumb-line"></div><div className="thumb-line w-5/6"></div><div className="thumb-section"></div><div className="thumb-line w-4/6"></div></div></button>)}</div></div>
+  return <div className="glass p-6"><div className="mb-6 flex items-center justify-between"><div><h2 className="text-3xl font-black">Blank Resume — choose a template</h2><p className="text-slate-400">Eight research-backed professional categories. Starts blank. Nothing is saved until Save, because databases are not wishing wells.</p></div><button className="btn" onClick={() => setPage('dashboard')}>Back to Dashboard</button></div><div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">{templates.map(t => <button key={t} onClick={() => create(t)} className="glass p-4 text-left hover:border-orange-400"><div className="mb-3"><div className="text-xs uppercase tracking-[.2em] text-orange-300">{templateMeta[t][0]}</div><p className="mt-1 min-h-10 text-xs leading-5 text-slate-400">{templateMeta[t][1]}</p></div><div className={`template-thumb resume-${t}`}><div className="thumb-header"></div><div className="thumb-line w-4/5"></div><div className="thumb-line w-3/5"></div><div className="thumb-section"></div><div className="thumb-line"></div><div className="thumb-line w-5/6"></div><div className="thumb-section"></div><div className="thumb-line w-4/6"></div></div></button>)}</div></div>
 }
 
 function ImportReview({ review, onCancel, onConfirm }) {
   const [template, setTemplate] = useState('modern')
-  return <div className="fixed inset-0 z-50 overflow-auto bg-black/80 p-6 backdrop-blur"><div className="mx-auto max-w-7xl"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-3xl font-black">Review uploaded resume</h2><p className="text-slate-400">Original extraction on the left. Parsed editable resume on the right. Confirm before saving, because blindly trusting parsers is how HR software happened.</p></div><div className="flex gap-2"><select className="input w-56" value={template} onChange={e => setTemplate(e.target.value)}>{templates.map(t => <option key={t}>{t}</option>)}</select><button className="btn" onClick={onCancel}>Cancel</button><button className="btn btn-primary" onClick={() => onConfirm(template)}>Confirm Import</button></div></div><div className="grid gap-5 lg:grid-cols-2"><pre className="glass max-h-[78vh] overflow-auto whitespace-pre-wrap p-5 text-sm text-slate-200 scrollbar">{review.original_text}</pre><div className="max-h-[78vh] overflow-auto scrollbar"><ResumePreview data={review.parsed} setData={() => { }} template={template} /></div></div></div></div>
+  return <div className="fixed inset-0 z-50 overflow-auto bg-black/80 p-6 backdrop-blur"><div className="mx-auto max-w-7xl"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-3xl font-black">Review uploaded resume</h2><p className="text-slate-400">Original extraction on the left. Parsed editable resume on the right. Confirm before saving, because blindly trusting parsers is how HR software happened.</p></div><div className="flex gap-2"><select className="input w-56" value={template} onChange={e => setTemplate(e.target.value)}>{templates.map(t => <option key={t} value={t}>{templateMeta[t][0]}</option>)}</select><button className="btn" onClick={onCancel}>Cancel</button><button className="btn btn-primary" onClick={() => onConfirm(template)}>Confirm Import</button></div></div><div className="grid gap-5 lg:grid-cols-2"><pre className="glass max-h-[78vh] overflow-auto whitespace-pre-wrap p-5 text-sm text-slate-200 scrollbar">{review.original_text}</pre><div className="max-h-[78vh] overflow-auto scrollbar"><ResumePreview data={review.parsed} setData={() => { }} template={template} /></div></div></div></div>
 }
 
 function BuildFromDescription({ setCurrent, setPage, reload }) {
@@ -100,7 +110,7 @@ function BuildFromDescription({ setCurrent, setPage, reload }) {
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setF({ ...f, [k]: v })
   async function build() { if (!f.title.trim()) { alert('Current or target job title is required'); return } setBusy(true); try { const r = await api('/build-from-description', { method: 'POST', body: JSON.stringify(f) }); await reload(); setCurrent(r); setPage('editor') } finally { setBusy(false) } }
-  return <section className="glass p-6"><h2 className="text-2xl font-black">Build from Description</h2><p className="mt-1 text-slate-400">Personalized AI resume generation from real background details. Separate from the generic Role Builder.</p><div className="mt-4 grid gap-3 md:grid-cols-2"><Input label="Current or target job title" v={f.title} on={v => set('title', v)} /><Input label="Years of experience" v={f.years} on={v => set('years', v)} /><Input label="Most recent employer and role" v={f.employer_role} on={v => set('employer_role', v)} /><Input label="Education" v={f.education} on={v => set('education', v)} /><Input label="Target role/industry" v={f.target} on={v => set('target', v)} /><label className="mb-2 block text-sm text-slate-400">Tone preference<select className="input mt-1" value={f.tone} onChange={e => set('tone', e.target.value)}><option>formal</option><option>modern</option><option>technical</option></select></label><label className="mb-2 block text-sm text-slate-400 md:col-span-2">Key skills and technologies<textarea className="input mt-1 h-24" value={f.skills} onChange={e => set('skills', e.target.value)} /></label><label className="mb-2 block text-sm text-slate-400 md:col-span-2">Key achievements or projects<textarea className="input mt-1 h-28" value={f.achievements} onChange={e => set('achievements', e.target.value)} /></label></div><div className="mt-3 flex items-center gap-3"><select className="input w-56" value={f.template} onChange={e => set('template', e.target.value)}>{templates.map(t => <option key={t}>{t}</option>)}</select><button className="btn btn-primary" onClick={build} disabled={busy}>{busy ? 'Building...' : 'Build Personalized Resume'}</button></div></section>
+  return <section className="glass p-6"><h2 className="text-2xl font-black">Build from Description</h2><p className="mt-1 text-slate-400">Personalized AI resume generation from real background details. Separate from the generic Role Builder.</p><div className="mt-4 grid gap-3 md:grid-cols-2"><Input label="Current or target job title" v={f.title} on={v => set('title', v)} /><Input label="Years of experience" v={f.years} on={v => set('years', v)} /><Input label="Most recent employer and role" v={f.employer_role} on={v => set('employer_role', v)} /><Input label="Education" v={f.education} on={v => set('education', v)} /><Input label="Target role/industry" v={f.target} on={v => set('target', v)} /><label className="mb-2 block text-sm text-slate-400">Tone preference<select className="input mt-1" value={f.tone} onChange={e => set('tone', e.target.value)}><option>formal</option><option>modern</option><option>technical</option></select></label><label className="mb-2 block text-sm text-slate-400 md:col-span-2">Key skills and technologies<textarea className="input mt-1 h-24" value={f.skills} onChange={e => set('skills', e.target.value)} /></label><label className="mb-2 block text-sm text-slate-400 md:col-span-2">Key achievements or projects<textarea className="input mt-1 h-28" value={f.achievements} onChange={e => set('achievements', e.target.value)} /></label></div><div className="mt-3 flex items-center gap-3"><select className="input w-56" value={f.template} onChange={e => set('template', e.target.value)}>{templates.map(t => <option key={t} value={t}>{templateMeta[t][0]}</option>)}</select><button className="btn btn-primary" onClick={build} disabled={busy}>{busy ? 'Building...' : 'Build Personalized Resume'}</button></div></section>
 }
 
 function Editor({ resume, setResume, setPage, reload }) {
@@ -118,7 +128,7 @@ function Editor({ resume, setResume, setPage, reload }) {
   return <div className="grid gap-6 xl:grid-cols-[560px_1fr]">
     <section className="glass max-h-[calc(100vh-130px)] overflow-auto p-5 scrollbar">
       <div className="flex flex-wrap gap-2"><button className="btn" onClick={back}><ArrowLeft className="mr-1 inline h-4 w-4" />Back</button><button className="btn btn-primary" onClick={save}><Save className="mr-1 inline h-4 w-4" />Save</button><button className="btn" onClick={dup}>Save Version</button>{resume.id && <a className="btn" href={`/api/resumes/${resume.id}/export/docx`}><Download className="mr-1 inline h-4 w-4" />DOCX</a>}{resume.id && <a className="btn" href={`/api/resumes/${resume.id}/export/pdf`}>PDF</a>}</div>
-      <label className="mt-4 block text-sm text-slate-400">Template</label><select className="input mt-1" value={template} onChange={e => setTemplate(e.target.value)}>{templates.map(t => <option key={t}>{t}</option>)}</select>
+      <label className="mt-4 block text-sm text-slate-400">Template</label><select className="input mt-1" value={template} onChange={e => setTemplate(e.target.value)}>{templates.map(t => <option key={t} value={t}>{templateMeta[t][0]}</option>)}</select>
       <Section title="Contact Info"><Input label="Name" v={data.contact.name} on={v => set(['contact', 'name'], v)} /><Input label="Title" v={data.contact.title} on={v => set(['contact', 'title'], v)} /><Input label="Email" v={data.contact.email} on={v => set(['contact', 'email'], v)} /><Input label="Phone" v={data.contact.phone} on={v => set(['contact', 'phone'], v)} /><Input label="LinkedIn" v={data.contact.linkedin} on={v => set(['contact', 'linkedin'], v)} /><Input label="Portfolio" v={data.contact.portfolio} on={v => set(['contact', 'portfolio'], v)} /><Input label="Location" v={data.contact.location} on={v => set(['contact', 'location'], v)} /></Section>
       <Section title="Professional Summary"><RichText value={data.summary} onChange={v => set(['summary'], v)} /></Section>
       <Skills data={data} setData={setData} />
@@ -144,28 +154,96 @@ function Education({ data, setData }) { const items = data.education || []; retu
 function CustomSections({ data, setData }) { const sections = data.custom_sections || []; return <Section title="Custom Sections">{sections.map((s, i) => <div className="mb-4 rounded-xl bg-black/20 p-3" key={i}><Input label="Section title" v={s.title} on={v => { const a = [...sections]; a[i].title = v; setData({ ...data, custom_sections: a }) }} /><List title="Bullets" items={s.bullets || []} setItems={items => { const a = [...sections]; a[i].bullets = items; setData({ ...data, custom_sections: a }) }} /><button className="btn" onClick={() => setData({ ...data, custom_sections: sections.filter((_, n) => n !== i) })}>Remove Custom Section</button></div>)}<button className="btn" onClick={() => setData({ ...data, custom_sections: [...sections, { title: 'Custom Section', bullets: [''] }] })}>Add Custom Section</button></Section> }
 
 function Editable({ children, onSave, className = '', tag: Tag = 'span' }) { return <Tag className={className} contentEditable suppressContentEditableWarning onBlur={e => onSave(safe(e.currentTarget.innerHTML))}>{children}</Tag> }
-function ResumePreview({ data, setData, template }) {
-  const c = data.contact || {}
+function ResumePreview({ data, setData = () => {}, template }) {
+  const placeholderResume = {
+    contact: {
+      name: 'MICHAEL DZIEGIEL',
+      title: 'Senior Network Administrator / IT Infrastructure Leader',
+      email: 'email@example.com',
+      phone: '(555) 555-0123',
+      linkedin: 'linkedin.com/in/your-profile',
+      portfolio: 'portfolio.example.com',
+      location: 'Lowell, MA'
+    },
+    summary: 'Senior technology professional with 20+ years of experience designing, securing, and supporting enterprise infrastructure, Microsoft endpoint environments, networks, cloud services, and business-critical systems. Recognized for practical troubleshooting, disciplined documentation, stakeholder support, and reliable execution in high-availability environments.',
+    skills: [
+      ['Network Administration', 'Microsoft 365 / Entra ID', 'Active Directory / GPO'],
+      ['Intune / Endpoint Management', 'Firewall / VPN', 'Windows Server'],
+      ['Security Monitoring', 'Backup & Recovery', 'Vendor Management'],
+      ['PowerShell', 'Documentation', 'Executive Support']
+    ],
+    technical: {
+      'Platforms': 'Windows Server, Windows 10/11, Microsoft 365, Entra ID, Intune, SCCM, Azure, VMware, Proxmox',
+      'Networking': 'Cisco switching, VLANs, VPN, DNS, DHCP, firewalls, wireless, TCP/IP monitoring',
+      'Security': 'Endpoint hardening, MFA, conditional access, patching, SIEM review, incident response'
+    },
+    experience: [
+      { title: 'Senior Network Administrator', company: 'Enterprise Manufacturing Organization', location: 'Haverhill, MA', dates: '2025 – 2026', bullets: [
+        'Administered network, server, endpoint, Microsoft 365, and security infrastructure supporting production business operations.',
+        'Managed Active Directory, Group Policy, endpoint configuration, patching, backups, access control, and infrastructure documentation.',
+        'Improved reliability and security posture by resolving recurring technical risks and strengthening monitoring, standards, and support procedures.'
+      ] },
+      { title: 'Systems Analyst', company: 'Managed Technology Services Provider', location: 'Nashua, NH', dates: '2021 – 2025', bullets: [
+        'Delivered infrastructure support, Microsoft cloud administration, systems analysis, and escalated troubleshooting across client environments.',
+        'Created repeatable documentation and support processes that improved service consistency, onboarding, and operational handoff.'
+      ] }
+    ],
+    education: [{ degree: 'Associate of Arts, Information Technology / Networking', school: 'University of Phoenix', details: 'GPA 3.97' }],
+    certifications: ['CCNA Coursework', 'A+ Certified Technician', 'Cyber Security Certificate'],
+    additional: ['Owner, MRDTech — IT consulting, infrastructure operations, endpoint management, security monitoring, and self-hosted systems administration.'],
+    custom_sections: []
+  }
+  const hasText = (v) => String(v || '').replace(/<[^>]+>/g, '').trim().length > 0
+  const pick = (actual, fallback) => hasText(actual) ? actual : fallback
+  const c = data?.contact || {}
+  const pc = placeholderResume.contact
+  const displayContact = {
+    name: pick(c.name, pc.name), title: pick(c.title, pc.title), email: pick(c.email, pc.email), phone: pick(c.phone, pc.phone),
+    linkedin: pick(c.linkedin, pc.linkedin), portfolio: pick(c.portfolio, pc.portfolio), location: pick(c.location, pc.location)
+  }
+  const actualSkillRows = normalizeSkillRows(data?.skills)
+  const skillRows = actualSkillRows.flat().some(hasText) ? actualSkillRows : placeholderResume.skills
+  const technicalEntries = Object.entries(data?.technical || {}).filter(([, v]) => hasText(v))
+  const technicalRows = technicalEntries.length ? technicalEntries : Object.entries(placeholderResume.technical)
+  const experienceRows = (data?.experience || []).filter(j => hasText(j?.title) || hasText(j?.company) || (j?.bullets || []).some(hasText))
+  const jobs = experienceRows.length ? experienceRows : placeholderResume.experience
+  const educationRows = (data?.education || []).filter(e => hasText(e?.degree) || hasText(e?.school) || hasText(e?.details))
+  const education = educationRows.length ? educationRows : placeholderResume.education
+  const certifications = (data?.certifications || []).filter(hasText)
+  const certs = certifications.length ? certifications : placeholderResume.certifications
+  const additionalRows = (data?.additional || []).filter(hasText)
+  const additional = additionalRows.length ? additionalRows : placeholderResume.additional
+  const customSections = (data?.custom_sections || []).filter(s => hasText(s?.title) || (s?.bullets || []).some(hasText))
   const ats = template === 'ats-optimized'
-  const setContact = (k, v) => setData({ ...data, contact: { ...data.contact, [k]: v } })
+  const isPlaceholder = (value, fallback) => String(value || '') === String(fallback || '')
+  const editableClass = (value, fallback, extra = '') => `${extra} ${isPlaceholder(value, fallback) ? 'resume-placeholder' : ''}`.trim()
+  const setContact = (k, v) => setData({ ...data, contact: { ...(data.contact || {}), [k]: v } })
   const setSummary = v => setData({ ...data, summary: v })
-  const setBullet = (i, j, v) => { const experience = [...(data.experience || [])]; experience[i].bullets[j] = v; setData({ ...data, experience }) }
-  const skillRows = normalizeSkillRows(data.skills)
-  const skillText = skillRows.flat().filter(Boolean).join(ats ? ' - ' : ' • ')
-  const contactLine = [c.email, c.phone, c.location, c.linkedin, c.portfolio].filter(Boolean).join(' • ')
-  const contactBlock = <div className="resume-contact"><p>{c.email}</p><p>{c.phone}</p><p>{c.location}</p><p>{c.linkedin}</p><p>{c.portfolio}</p></div>
+  const setBullet = (i, j, v) => {
+    const experience = structuredClone(data.experience || [])
+    if (!experience[i]) return
+    experience[i].bullets[j] = v
+    setData({ ...data, experience })
+  }
+  const contactItems = [displayContact.email, displayContact.phone, displayContact.location, displayContact.linkedin, displayContact.portfolio]
+  const contactLine = contactItems.filter(Boolean).join(ats ? ' | ' : ' • ')
+  const HeaderIdentity = ({ sidebar = false }) => <>
+    <Editable tag="h1" className={editableClass(displayContact.name, pc.name)} onSave={v => setContact('name', v)}>{displayContact.name}</Editable>
+    <Editable tag="p" className={editableClass(displayContact.title, pc.title, sidebar ? 'sidebar-title' : 'resume-title')} onSave={v => setContact('title', v)}>{displayContact.title}</Editable>
+  </>
+  const ContactBlock = ({ compact = false }) => <div className={compact ? 'resume-contact-line' : 'resume-contact'}>{compact ? contactLine : contactItems.map((item, i) => <p key={i}>{item}</p>)}</div>
   const SectionHeading = ({ children }) => <H template={template}>{children}</H>
-  const SkillsBlock = () => skillRows.length > 0 && <><SectionHeading>Areas of Expertise</SectionHeading>{ats ? <p>{skillText}</p> : <table className="skill-table w-full border-collapse text-sm"><tbody>{skillRows.map((r, i) => <tr key={i}>{[0, 1, 2].map(n => <td className="p-2" key={n}>{r[n] || ''}</td>)}</tr>)}</tbody></table>}</>
-  const TechnicalBlock = () => Object.entries(data.technical || {}).filter(([, v]) => String(v || '').trim()).length > 0 && <><SectionHeading>Technical Proficiencies</SectionHeading>{Object.entries(data.technical || {}).map(([k, v]) => String(v || '').trim() && <p key={k} className="text-sm"><b>{k}:</b> {v}</p>)}</>
-  const ExperienceBlock = () => (data.experience || []).length > 0 && <><SectionHeading>Career Experience</SectionHeading>{(data.experience || []).map((j, i) => <div key={i} className="experience-entry mb-4"><div className="job-line flex justify-between gap-4 font-bold"><span>{[j.title, j.company, j.location].filter(Boolean).join(' — ')}</span><span>{j.dates}</span></div><ul className="ml-5 list-disc text-sm">{(j.bullets || []).filter(Boolean).map((b, n) => <li key={n}><Editable onSave={v => setBullet(i, n, v)}>{safe(b)}</Editable></li>)}</ul></div>)}</>
-  const EducationBlock = () => (data.education || []).length > 0 && <><SectionHeading>Education</SectionHeading>{(data.education || []).map((e, i) => <p key={i}><b>{e.degree}</b>{e.school ? `, ${e.school}` : ''}{e.details ? ` — ${e.details}` : ''}</p>)}</>
-  const CertBlock = () => (data.certifications || []).filter(Boolean).length > 0 && <><SectionHeading>Certifications</SectionHeading><p>{(data.certifications || []).filter(Boolean).join(' • ')}</p></>
-  const AdditionalBlock = () => (data.additional || []).filter(Boolean).length > 0 && <><SectionHeading>Additional Experience</SectionHeading>{(data.additional || []).filter(Boolean).map((a, i) => <p key={i}>{a}</p>)}</>
-  const CustomBlock = () => (data.custom_sections || []).map((s, i) => (s.title || (s.bullets || []).some(Boolean)) && <div key={i}><SectionHeading>{s.title}</SectionHeading><ul className="ml-5 list-disc">{(s.bullets || []).filter(Boolean).map((b, n) => <li key={n}>{b}</li>)}</ul></div>)
-  const MainContent = ({ includeSkills = true, includeTechnical = true, includeCerts = true }) => <main className="resume-main"><SectionHeading>Professional Summary</SectionHeading><Editable tag="p" onSave={setSummary}>{safe(data.summary)}</Editable>{includeSkills && <SkillsBlock />}{includeTechnical && <TechnicalBlock />}<ExperienceBlock /><EducationBlock />{includeCerts && <CertBlock />}<AdditionalBlock /><CustomBlock /></main>
-  if (template === 'technical') return <div className="resume-page resume-technical resume-sidebar-layout"><aside className="resume-sidebar"><Editable tag="h1" onSave={v => setContact('name', v)}>{c.name || ''}</Editable><Editable tag="p" className="sidebar-title" onSave={v => setContact('title', v)}>{c.title || ''}</Editable><H template={template}>Contact</H>{contactBlock}<SkillsBlock /><TechnicalBlock /><CertBlock /></aside><MainContent includeSkills={false} includeTechnical={false} includeCerts={false} /></div>
-  if (template === 'two-column') return <div className="resume-page resume-two-column resume-sidebar-layout"><aside className="resume-sidebar"><Editable tag="h1" onSave={v => setContact('name', v)}>{c.name || ''}</Editable><Editable tag="p" className="sidebar-title" onSave={v => setContact('title', v)}>{c.title || ''}</Editable><H template={template}>Contact</H>{contactBlock}<SkillsBlock /><CertBlock /></aside><MainContent includeSkills={false} includeCerts={false} /></div>
-  return <div className={`resume-page resume-${template}`}><header className="resume-header"><div className="resume-identity"><Editable tag="h1" onSave={v => setContact('name', v)}>{c.name || ''}</Editable><Editable tag="p" className="resume-title" onSave={v => setContact('title', v)}>{c.title || ''}</Editable></div>{template === 'modern' || template === 'minimal' || template === 'ats-optimized' ? <p className="resume-contact-line">{ats ? contactLine.replaceAll(' • ', ' - ') : contactLine}</p> : contactBlock}</header><MainContent /></div>
+  const SkillsBlock = ({ chips = false } = {}) => <section className="resume-section resume-skills-block"><SectionHeading>Areas of Expertise</SectionHeading>{ats ? <p className="ats-skill-line">{skillRows.flat().filter(Boolean).join(' | ')}</p> : chips ? <div className="skill-chips">{skillRows.flat().filter(Boolean).map((skill, i) => <span key={i}>{skill}</span>)}</div> : <table className="skill-table"><tbody>{skillRows.map((r, i) => <tr key={i}>{[0, 1, 2].map(n => <td key={n}>{r[n] || ''}</td>)}</tr>)}</tbody></table>}</section>
+  const TechnicalBlock = () => <section className="resume-section"><SectionHeading>Technical Proficiencies</SectionHeading><div className="technical-list">{technicalRows.map(([k, v]) => <p key={k}><b>{k}:</b> {v}</p>)}</div></section>
+  const ExperienceBlock = () => <section className="resume-section"><SectionHeading>Career Experience</SectionHeading>{jobs.map((j, i) => <article key={i} className="experience-entry"><div className="job-line"><div><b>{[pick(j.title, placeholderResume.experience[i]?.title || 'Position Title'), pick(j.company, placeholderResume.experience[i]?.company || 'Company Name')].filter(Boolean).join(' — ')}</b><span>{pick(j.location, placeholderResume.experience[i]?.location || 'Location')}</span></div><time>{pick(j.dates, placeholderResume.experience[i]?.dates || 'Dates')}</time></div><ul>{((j.bullets || []).filter(hasText).length ? j.bullets.filter(hasText) : (placeholderResume.experience[i]?.bullets || placeholderResume.experience[0].bullets)).map((b, n) => <li key={n}>{experienceRows.length && data.experience?.[i]?.bullets?.[n] ? <Editable onSave={v => setBullet(i, n, v)}>{safe(b)}</Editable> : safe(b)}</li>)}</ul></article>)}</section>
+  const EducationBlock = () => <section className="resume-section"><SectionHeading>Education</SectionHeading>{education.map((e, i) => <p key={i} className="education-line"><b>{pick(e.degree, placeholderResume.education[0].degree)}</b>{pick(e.school, placeholderResume.education[0].school) ? ` — ${pick(e.school, placeholderResume.education[0].school)}` : ''}{pick(e.details, placeholderResume.education[0].details) ? `, ${pick(e.details, placeholderResume.education[0].details)}` : ''}</p>)}</section>
+  const CertBlock = () => <section className="resume-section"><SectionHeading>Certifications</SectionHeading><p className="cert-line">{certs.join(ats ? ' | ' : ' • ')}</p></section>
+  const AdditionalBlock = () => <section className="resume-section"><SectionHeading>Additional Experience</SectionHeading>{additional.map((a, i) => <p key={i}>{a}</p>)}</section>
+  const CustomBlock = () => customSections.map((s, i) => <section key={i} className="resume-section"><SectionHeading>{s.title}</SectionHeading><ul>{(s.bullets || []).filter(hasText).map((b, n) => <li key={n}>{b}</li>)}</ul></section>)
+  const MainContent = ({ includeSkills = true, includeTechnical = true, includeCerts = true, includeAdditional = true, chips = false } = {}) => <main className="resume-main"><section className="resume-section resume-summary"><SectionHeading>Professional Summary</SectionHeading><Editable tag="p" className={editableClass(pick(data?.summary, placeholderResume.summary), placeholderResume.summary)} onSave={setSummary}>{safe(pick(data?.summary, placeholderResume.summary))}</Editable></section>{includeSkills && <SkillsBlock chips={chips} />}{includeTechnical && <TechnicalBlock />}<ExperienceBlock /><EducationBlock />{includeCerts && <CertBlock />}{includeAdditional && <AdditionalBlock />}<CustomBlock /></main>
+  if (template === 'technical') return <div className="resume-page resume-technical resume-sidebar-layout"><aside className="resume-sidebar"><HeaderIdentity sidebar /><H template={template}>Contact</H><ContactBlock /><SkillsBlock chips /><CertBlock /></aside><MainContent includeSkills={false} includeCerts={false} /></div>
+  if (template === 'two-column') return <div className="resume-page resume-two-column resume-sidebar-layout"><aside className="resume-sidebar"><HeaderIdentity sidebar /><H template={template}>Contact</H><ContactBlock /><SkillsBlock chips /><CertBlock /></aside><MainContent includeSkills={false} includeCerts={false} chips /></div>
+  return <div className={`resume-page resume-${template}`}><header className="resume-header"><div className="resume-identity"><HeaderIdentity /></div>{template === 'modern' || template === 'minimal' || template === 'ats-optimized' ? <ContactBlock compact /> : <ContactBlock />}</header><MainContent /></div>
 }
 function H({ children, template }) { return <h2 className={`resume-section-title ${template === 'ats-optimized' ? 'ats-heading' : ''}`}>{children}</h2> }
 
