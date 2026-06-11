@@ -20,7 +20,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from database import DB_PATH, UPLOAD_DIR, connect, dumps, loads, now
-from seed import DEFAULT_RESUME, seed
+from seed import DEFAULT_RESUME, insert_sample_resume, seed
 
 app = FastAPI(title='Resume Builder', version='1.0.0')
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
@@ -72,8 +72,32 @@ def health():
             'roles': conn.execute('SELECT COUNT(*) c FROM role_library').fetchone()['c']
         }
 
+def normalize_resume_data(data: dict[str, Any]) -> dict[str, Any]:
+    data = json.loads(json.dumps(data))
+    rows = []
+    for row in data.get('skills', []):
+        if isinstance(row, dict):
+            cells = row.get('items') or [row.get('a', ''), row.get('b', ''), row.get('c', '')]
+        elif isinstance(row, str):
+            cells = [x.strip() for x in re.split(r'\s*\|\s*', row)]
+        else:
+            cells = list(row) if isinstance(row, (list, tuple)) else []
+        cells = [str(x).strip() for x in cells if str(x).strip()]
+        rows.append((cells + ['', '', ''])[:3])
+    data['skills'] = rows
+    for job in data.get('experience', []):
+        if 'start_date' not in job or 'end_date' not in job:
+            dates = job.get('dates', '')
+            parts = re.split(r'\s+[–-]\s+', dates, maxsplit=1)
+            job.setdefault('start_date', parts[0] if parts else '')
+            job.setdefault('end_date', parts[1] if len(parts) > 1 else '')
+    data.setdefault('custom_sections', [])
+    return data
+
+
 def row_resume(row):
-    return {'id': row['id'], 'name': row['name'], 'title': row['title'], 'template': row['template'], 'data': loads(row['data_json']), 'created_at': row['created_at'], 'updated_at': row['updated_at']}
+    data = normalize_resume_data(loads(row['data_json']))
+    return {'id': row['id'], 'name': row['name'], 'title': row['title'], 'template': row['template'], 'data': data, 'created_at': row['created_at'], 'updated_at': row['updated_at']}
 
 @app.get('/api/resumes')
 def resumes():
@@ -92,15 +116,25 @@ def save_resume(payload: ResumeIn):
     stamp = now()
     with connect() as conn:
         cur = conn.execute('INSERT INTO resumes(name,title,template,data_json,created_at,updated_at) VALUES(?,?,?,?,?,?)',
-                           (payload.name, payload.title, payload.template, dumps(payload.data), stamp, stamp))
+                           (payload.name, payload.title, payload.template, dumps(normalize_resume_data(payload.data)), stamp, stamp))
         return resume(cur.lastrowid)
 
 @app.put('/api/resumes/{resume_id}')
 def update_resume(resume_id: int, payload: ResumeIn):
     with connect() as conn:
         conn.execute('UPDATE resumes SET name=?, title=?, template=?, data_json=?, updated_at=? WHERE id=?',
-                     (payload.name, payload.title, payload.template, dumps(payload.data), now(), resume_id))
+                     (payload.name, payload.title, payload.template, dumps(normalize_resume_data(payload.data)), now(), resume_id))
     return resume(resume_id)
+
+@app.delete('/api/resumes/{resume_id}')
+def delete_resume(resume_id: int):
+    with connect() as conn:
+        conn.execute('DELETE FROM resumes WHERE id=?', (resume_id,))
+    return {'deleted': resume_id}
+
+@app.post('/api/sample-resume')
+def load_sample_resume():
+    return resume(insert_sample_resume())
 
 @app.post('/api/resumes/{resume_id}/duplicate')
 def duplicate(resume_id: int):

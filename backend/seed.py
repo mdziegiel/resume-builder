@@ -82,16 +82,23 @@ DEFAULT_RESUME = {
 
 def seed():
     init_db()
-    stamp = now()
     with connect() as conn:
         for category, titles in ROLE_LIBRARY.items():
             for title in titles:
                 below = int(any(token.lower() in title.lower() for token in BELOW_TARGET))
                 conn.execute('INSERT OR IGNORE INTO role_library(category,title,below_target) VALUES(?,?,?)', (category, title, below))
-        existing = conn.execute('SELECT id FROM resumes WHERE name=?', ('Michael Dziegiel - Master Resume',)).fetchone()
-        if not existing:
-            conn.execute('INSERT INTO resumes(name,title,template,data_json,created_at,updated_at) VALUES(?,?,?,?,?,?)',
-                         ('Michael Dziegiel - Master Resume', DEFAULT_RESUME['contact']['title'], 'executive', dumps(DEFAULT_RESUME), stamp, stamp))
+        # Earlier builds auto-created Michael's sample resume. That was bad UX.
+        # Remove only the untouched default row so the dashboard starts blank.
+        conn.execute("DELETE FROM resumes WHERE name=? AND title=?", ('Michael Dziegiel - Master Resume', DEFAULT_RESUME['contact']['title']))
+
+
+def insert_sample_resume():
+    init_db()
+    stamp = now()
+    with connect() as conn:
+        cur = conn.execute('INSERT INTO resumes(name,title,template,data_json,created_at,updated_at) VALUES(?,?,?,?,?,?)',
+                           ('Michael Dziegiel - Sample Resume', DEFAULT_RESUME['contact']['title'], 'executive', dumps(DEFAULT_RESUME), stamp, stamp))
+        return cur.lastrowid
 
 if __name__ == '__main__':
     seed()

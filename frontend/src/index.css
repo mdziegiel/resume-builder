@@ -8,11 +8,38 @@ body { margin: 0; background: radial-gradient(circle at 15% 0%, rgba(249,115,22,
 .btn-primary { background: linear-gradient(135deg, #f97316, #fb923c); color: #111827; border-color: transparent; }
 .input { width: 100%; border-radius: 14px; background: rgba(2,6,23,.75); border: 1px solid rgba(255,255,255,.12); padding: .7rem .85rem; outline: none; color: #f8fafc; }
 .input:focus { border-color: #f97316; box-shadow: 0 0 0 3px rgba(249,115,22,.18); }
-.resume-page { background: white; color: #111827; min-height: 1056px; width: 816px; max-width: 100%; margin: 0 auto; padding: 44px; box-shadow: 0 30px 90px rgba(0,0,0,.45); }
-.resume-modern h2 { color: #f97316; }
-.resume-executive h1 { letter-spacing: .08em; }
-.resume-technical h2 { border-left: 4px solid #f97316; padding-left: 10px; }
-.resume-classic h2 { color: #111827; border-bottom: 1px solid #111827; }
+.resume-page { background: white; color: #111827; min-height: 1056px; width: 816px; max-width: 100%; margin: 0 auto; padding: 44px; box-shadow: 0 30px 90px rgba(0,0,0,.45); font-size: 14px; line-height: 1.45; }
+.resume-page [contenteditable="true"] { outline: 1px dashed transparent; border-radius: 3px; }
+.resume-page [contenteditable="true"]:hover { outline-color: rgba(249,115,22,.45); background: rgba(249,115,22,.06); }
+.resume-header { border-bottom: 4px solid #f97316; }
+.resume-classic { font-family: Georgia, 'Times New Roman', serif; }
+.resume-classic .resume-header { border-bottom: 1px solid #111827; }
+.resume-classic h2 { color: #111827; border-bottom: 1px solid #111827; letter-spacing: .08em; }
+.resume-modern { font-family: Inter, Arial, sans-serif; }
+.resume-modern .resume-header { border-bottom: 5px solid #f97316; }
+.resume-modern h2 { color: #f97316; border: none; }
+.resume-executive { font-family: Garamond, Georgia, serif; }
+.resume-executive h1 { letter-spacing: .10em; font-size: 2.8rem; }
+.resume-executive h2 { letter-spacing: .22em; color: #111827; border-bottom: 2px solid #111827; }
+.resume-technical { font-family: Inter, Arial, sans-serif; font-size: 13px; }
+.resume-technical h2 { border-left: 5px solid #f97316; padding-left: 10px; color: #111827; background: #f8fafc; }
+.resume-technical b, .resume-technical td { font-family: 'Courier New', monospace; }
+.resume-minimal { padding: 64px; font-family: Inter, Arial, sans-serif; }
+.resume-minimal .resume-header { border: none; display: block; }
+.resume-minimal h2 { color: #111827; border: none; margin-top: 30px; letter-spacing: .12em; }
+.resume-minimal table td { border: none; padding-left: 0; }
+.resume-two-column { padding: 0; }
+.resume-two-column h2 { color: #f97316; }
+.resume-two-column aside h2 { color: #fb923c; }
+.resume-corporate { padding-top: 0; }
+.resume-corporate .resume-header { margin: -44px -44px 32px -44px; padding: 34px 44px; background: #0f172a; color: white; border: none; }
+.resume-corporate .resume-header p, .resume-corporate .resume-header div { color: #e2e8f0; }
+.resume-corporate h2 { color: #0f172a; border-bottom: 2px solid #0f172a; }
+.resume-ats-optimized { font-family: Arial, sans-serif; box-shadow: none; padding: 40px; }
+.resume-ats-optimized .resume-header { border: none; display: block; }
+.resume-ats-optimized h1 { font-size: 28px; letter-spacing: 0; }
+.resume-ats-optimized h2 { color: black; border: none; letter-spacing: 0; font-size: 15px; }
+.resume-ats-optimized table, .resume-ats-optimized tr, .resume-ats-optimized td { display: block; border: none; padding: 0; }
 .scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
 .scrollbar::-webkit-scrollbar-track { background: #111827; }
 .scrollbar::-webkit-scrollbar-thumb { background: #f97316; border-radius: 999px; }

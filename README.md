@@ -8,7 +8,15 @@ A professional, self-hosted resume and career document builder for creating port
 - Side-by-side resume editor and LinkedIn-quality browser preview
 - Clean two-column resume header layout
 - Professional summary, three-column expertise table, technical proficiencies, career experience, education, certifications, and additional experience
-- Four resume templates: Classic, Modern, Executive, Technical
+- Blank dashboard by default, with an optional Load Sample Resume action
+- Delete saved resume versions from the dashboard with confirmation
+- Eight resume templates: Classic, Modern, Executive, Technical, Minimal, Two-Column, Corporate, ATS-Optimized
+- Rich text editing for summaries and bullets, including bold/italic support
+- Inline editing directly in the live resume preview
+- Skills edited as chips and three-column expertise rows
+- Date picker fields for employment start/end dates
+- Drag/reorder entire job positions and bullet points
+- Custom section builder with custom title and bullets
 - Upload PDF or Word resumes and pre-populate editable fields
 - Add/remove/reorder sections and bullet points
 - Save multiple resume versions
@@ -20,9 +28,9 @@ A professional, self-hosted resume and career document builder for creating port
 - Pre-loaded role library organized by category, including warning indicators for below-target support/junior roles
 - SQLite persistence for resumes, generated documents, role library, and uploads
 
-## Seeded default resume
+## Optional sample resume
 
-The app starts with Michael Dziegiel's master resume profile:
+The app starts with an empty dashboard. Use **Load Sample Resume** if you want Michael Dziegiel's sample resume profile for testing or as a formatting reference:
 
 - Senior Network Administrator / IT Support & Network Engineer
 - Contact data, education, certifications, skills tables, technical proficiencies, career experience, and additional MRDTech experience
