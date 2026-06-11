@@ -19,6 +19,7 @@ body { margin: 0; background: radial-gradient(circle at 15% 0%, rgba(249,115,22,
 .template-thumb.resume-two-column .thumb-line, .template-thumb.resume-two-column .thumb-section { margin-left: 38%; }
 .template-thumb.resume-ats-optimized .thumb-header, .template-thumb.resume-ats-optimized .thumb-section { background: #111827; height: 8px; }
 .resume-page { background: white; color: #111827; min-height: 1056px; width: 816px; max-width: 100%; margin: 0 auto; padding: 44px; box-shadow: 0 30px 90px rgba(0,0,0,.45); font-size: 14px; line-height: 1.45; }
+.letter-page { background: white; color: #111827; min-height: 1056px; width: 816px; max-width: 100%; margin: 0 auto; padding: 72px; box-shadow: 0 30px 90px rgba(0,0,0,.45); font-family: Georgia, 'Times New Roman', serif; }
 .resume-page [contenteditable="true"] { outline: 1px dashed transparent; border-radius: 3px; }
 .resume-page [contenteditable="true"]:hover { outline-color: rgba(249,115,22,.45); background: rgba(249,115,22,.06); }
 .resume-header { border-bottom: 4px solid #f97316; }

@@ -2,6 +2,7 @@ import io
 import json
 import os
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -42,17 +43,22 @@ class TailorIn(BaseModel):
     job_description: str
 
 class CoverIn(BaseModel):
-    resume_id: int
+    resume_id: Optional[int] = None
     company: str
     job_description: str
     hiring_manager: str = 'Hiring Manager'
+    sender_name: str = ''
+    sender_contact: str = ''
 
 class ThankYouIn(BaseModel):
+    resume_id: Optional[int] = None
     interviewer: str
     company: str
     position: str
     interview_date: str
     talking_points: str
+    sender_name: str = ''
+    sender_contact: str = ''
 
 class RoleBuildIn(BaseModel):
     title: str
@@ -171,12 +177,22 @@ def roles():
             out.setdefault(r['category'], []).append({'title': r['title'], 'below_target': bool(r['below_target'])})
         return out
 
+def row_document(row):
+    return dict(row) | {'data': loads(row['data_json'])}
+
 @app.get('/api/documents')
 def documents(kind: Optional[str] = None):
     sql = 'SELECT * FROM documents' + (' WHERE kind=?' if kind else '') + ' ORDER BY updated_at DESC'
     args = (kind,) if kind else ()
     with connect() as conn:
-        return [dict(r) | {'data': loads(r['data_json'])} for r in conn.execute(sql, args)]
+        return [row_document(r) for r in conn.execute(sql, args)]
+
+@app.get('/api/documents/{doc_id}')
+def document(doc_id: int):
+    with connect() as conn:
+        r = conn.execute('SELECT * FROM documents WHERE id=?', (doc_id,)).fetchone()
+        if not r: raise HTTPException(404, 'Document not found')
+        return row_document(r)
 
 @app.post('/api/documents')
 def save_doc(payload: DocIn):
@@ -184,7 +200,23 @@ def save_doc(payload: DocIn):
     with connect() as conn:
         cur = conn.execute('INSERT INTO documents(kind,title,resume_id,data_json,created_at,updated_at) VALUES(?,?,?,?,?,?)',
                            (payload.kind, payload.title, payload.resume_id, dumps(payload.data), stamp, stamp))
-        return {'id': cur.lastrowid, **payload.model_dump(), 'created_at': stamp, 'updated_at': stamp}
+        doc_id = cur.lastrowid
+        if doc_id is None: raise HTTPException(500, 'Document insert failed')
+        conn.commit()
+    return document(int(doc_id))
+
+@app.put('/api/documents/{doc_id}')
+def update_doc(doc_id: int, payload: DocIn):
+    with connect() as conn:
+        conn.execute('UPDATE documents SET kind=?, title=?, resume_id=?, data_json=?, updated_at=? WHERE id=?',
+                     (payload.kind, payload.title, payload.resume_id, dumps(payload.data), now(), doc_id))
+    return document(doc_id)
+
+@app.delete('/api/documents/{doc_id}')
+def delete_doc(doc_id: int):
+    with connect() as conn:
+        conn.execute('DELETE FROM documents WHERE id=?', (doc_id,))
+    return {'deleted': doc_id}
 
 def extract_text_docx(content: bytes) -> str:
     doc = Document(io.BytesIO(content))
@@ -336,17 +368,46 @@ def tailor(payload: TailorIn):
     generated = claude('Analyze this resume JSON against this job description. Return concise tailored summary, missing keyword recommendations, and revised bullets.\nRESUME:\n' + resume_text + '\nJOB:\n' + payload.job_description)
     return {'ats_score': score, 'missing_keywords': missing, 'suggestions': generated or 'Claude API key not configured. Keyword analysis completed locally. Add the missing keywords where truthful and relevant.', 'tailored_resume': r['data']}
 
+def contact_from_resume(resume_id: Optional[int]) -> dict[str, str]:
+    if not resume_id:
+        return {'name': '', 'contact': ''}
+    try:
+        c = resume(resume_id)['data'].get('contact', {})
+        contact = ' | '.join([x for x in [c.get('email'), c.get('phone'), c.get('location'), c.get('linkedin')] if x])
+        return {'name': c.get('name', ''), 'contact': contact}
+    except Exception:
+        return {'name': '', 'contact': ''}
+
+def today_long() -> str:
+    return datetime.utcnow().strftime('%B %-d, %Y') if os.name != 'nt' else datetime.utcnow().strftime('%B %#d, %Y')
+
+def cover_template(company='[Company]', manager='Hiring Manager', sender_name='', sender_contact=''):
+    name = sender_name or '[Your Name]'
+    contact = sender_contact or '[Email] | [Phone] | [Location]'
+    return f"{name}\n{contact}\n\n{today_long()}\n\n{company}\n[Company Address]\n\nDear {manager or 'Hiring Manager'},\n\nI am writing to express my interest in the [Position Title] role with {company}. My background in [relevant discipline], combined with hands-on experience in [key skill area], aligns well with the needs of your team.\n\nIn previous roles, I have delivered measurable results by [achievement one], [achievement two], and [achievement three]. I bring a practical, professional approach to solving problems, supporting stakeholders, and improving operational outcomes.\n\nI would welcome the opportunity to discuss how my experience can support {company}'s goals. Thank you for your time and consideration.\n\nSincerely,\n{name}"
+
+def thank_template(company='[Company]', interviewer='Hiring Manager', position='[Position Title]', interview_date='[Interview Date]', sender_name='', sender_contact=''):
+    name = sender_name or '[Your Name]'
+    contact = sender_contact or '[Email] | [Phone] | [Location]'
+    return f"{name}\n{contact}\n\n{today_long()}\n\nDear {interviewer or 'Hiring Manager'},\n\nThank you for taking the time to speak with me on {interview_date} about the {position} opportunity at {company}. I appreciated learning more about the role, the team, and the priorities ahead.\n\nOur conversation reinforced my interest in the position, particularly the discussion around [key topic]. My background in [relevant experience] would allow me to contribute quickly and thoughtfully.\n\nThank you again for your time and consideration. I look forward to the possibility of continuing the conversation.\n\nSincerely,\n{name}"
+
 @app.post('/api/cover-letter')
 def cover(payload: CoverIn):
-    r = resume(payload.resume_id)
-    prompt = f"Write a professional cover letter for {payload.company}, hiring manager {payload.hiring_manager}, using this resume JSON and job description. Include bullet highlights and formal tone. RESUME={json.dumps(r['data'])} JOB={payload.job_description}"
-    text = claude(prompt) or f"Dear {payload.hiring_manager},\n\nI am writing to express interest in the opportunity with {payload.company}. My background in infrastructure administration, Microsoft endpoint management, networking, and executive-level technical support aligns well with the needs described.\n\nHighlights include:\n• Senior network and systems administration experience\n• Microsoft 365, Entra ID, endpoint, security, and network operations expertise\n• Proven ability to resolve complex incidents and improve operational reliability\n\nI would welcome the opportunity to discuss how my experience can support {payload.company}.\n\nSincerely,\n{r['data']['contact']['name']}"
-    return save_doc(DocIn(kind='cover_letter', title=f'Cover Letter - {payload.company}', resume_id=payload.resume_id, data={'content': text, **payload.model_dump()}))
+    linked = contact_from_resume(payload.resume_id)
+    sender_name = payload.sender_name or linked['name']
+    sender_contact = payload.sender_contact or linked['contact']
+    resume_json = json.dumps(resume(payload.resume_id)['data']) if payload.resume_id else '{}'
+    prompt = f"Write a professional cover letter for {payload.company}, hiring manager {payload.hiring_manager}, using optional resume JSON and job description. Return only the finished letter. RESUME={resume_json} JOB={payload.job_description} SENDER={sender_name} CONTACT={sender_contact}"
+    text = claude(prompt) or cover_template(payload.company, payload.hiring_manager, sender_name, sender_contact)
+    return save_doc(DocIn(kind='cover_letter', title=f'Cover Letter - {payload.company or "Draft"}', resume_id=payload.resume_id, data={'content': text, 'sender_name': sender_name, 'sender_contact': sender_contact, **payload.model_dump()}))
 
 @app.post('/api/thank-you')
 def thank_you(payload: ThankYouIn):
-    text = claude(f'Write a professional post-interview thank you letter from these details: {payload.model_dump_json()}') or f"Dear {payload.interviewer},\n\nThank you for taking the time to speak with me on {payload.interview_date} about the {payload.position} position at {payload.company}. I appreciated the opportunity to learn more about the role and discuss {payload.talking_points}.\n\nOur conversation reinforced my interest in the opportunity and my confidence that my experience can contribute value to your team.\n\nSincerely,\nMichael Dziegiel"
-    return save_doc(DocIn(kind='thank_you', title=f'Thank You - {payload.company}', data={'content': text, **payload.model_dump()}))
+    linked = contact_from_resume(payload.resume_id)
+    sender_name = payload.sender_name or linked['name']
+    sender_contact = payload.sender_contact or linked['contact']
+    text = claude(f'Write a professional post-interview thank you letter. Return only the finished letter. Details: {payload.model_dump_json()} SENDER={sender_name} CONTACT={sender_contact}') or thank_template(payload.company, payload.interviewer, payload.position, payload.interview_date, sender_name, sender_contact)
+    return save_doc(DocIn(kind='thank_you', title=f'Thank You - {payload.company or "Draft"}', resume_id=payload.resume_id, data={'content': text, 'sender_name': sender_name, 'sender_contact': sender_contact, **payload.model_dump()}))
 
 @app.post('/api/role-build')
 def role_build(payload: RoleBuildIn):
@@ -432,18 +493,30 @@ def export_resume(resume_id: int, fmt: str):
 
 @app.post('/api/documents/export/{fmt}')
 def export_document(fmt: str, payload: DocIn):
-    content = payload.data.get('content', '')
+    return letter_export_response(fmt, payload.title, payload.data.get('content', ''))
+
+@app.get('/api/documents/{doc_id}/export/{fmt}')
+def export_document_by_id(doc_id: int, fmt: str):
+    d = document(doc_id)
+    return letter_export_response(fmt, str(d['title']), d['data'].get('content', ''))
+
+def letter_export_response(fmt: str, title: str, content: str):
+    safe = re.sub(r'[^A-Za-z0-9_.-]+', '-', title).strip('-').lower() or 'letter'
     if fmt == 'docx':
-        doc = Document(); doc.add_heading(payload.title, 0)
-        for para in content.split('\n'):
-            doc.add_paragraph(para)
+        doc = Document()
+        for i, para in enumerate(content.split('\n')):
+            p = doc.add_paragraph(para)
+            if i == 0:
+                for run in p.runs: run.bold = True
         buf = io.BytesIO(); doc.save(buf)
-        return Response(buf.getvalue(), media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        return Response(buf.getvalue(), media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', headers={'Content-Disposition': f'attachment; filename={safe}.docx'})
     if fmt == 'pdf':
-        buf = io.BytesIO(); pdf = SimpleDocTemplate(buf, pagesize=LETTER); story=[]; styles=getSampleStyleSheet()
+        buf = io.BytesIO(); pdf = SimpleDocTemplate(buf, pagesize=LETTER, leftMargin=.75*inch, rightMargin=.75*inch, topMargin=.65*inch, bottomMargin=.65*inch); story=[]; styles=getSampleStyleSheet()
         for para in content.split('\n'):
-            story.append(Paragraph(para.replace('&','&amp;'), styles['BodyText'])); story.append(Spacer(1,6))
-        pdf.build(story); return Response(buf.getvalue(), media_type='application/pdf')
+            if para.strip(): story.append(Paragraph(para.replace('&','&amp;'), styles['BodyText']))
+            story.append(Spacer(1,8))
+        pdf.build(story)
+        return Response(buf.getvalue(), media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename={safe}.pdf'})
     raise HTTPException(400, 'fmt must be docx or pdf')
 
 static_dir = Path('/app/frontend-dist')

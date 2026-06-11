@@ -83,8 +83,8 @@ Place screenshots here after first production deployment:
 - Dashboard
 - Resume editor with live preview
 - Job-targeted resume mode
-- Cover letter builder
-- Role builder
+- Cover letter builder with AI generation, scratch templates, saved-letter loading, live printed-page preview, and Word/PDF export
+- Thank-you letter builder with AI generation, scratch templates, saved-letter loading, live printed-page preview, and Word/PDF export
 
 ## Stack
 
