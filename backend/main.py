@@ -320,9 +320,12 @@ def keywords(text: str) -> set[str]:
 def claude(prompt: str) -> Optional[str]:
     key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('ANTHROPIC_TOKEN')
     if not key: return None
-    resp = requests.post('https://api.anthropic.com/v1/messages', headers={'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, json={'model': os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-20250514'), 'max_tokens': 1800, 'messages': [{'role': 'user', 'content': prompt}]}, timeout=60)
-    resp.raise_for_status()
-    return resp.json()['content'][0]['text']
+    try:
+        resp = requests.post('https://api.anthropic.com/v1/messages', headers={'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, json={'model': os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-4-20250514'), 'max_tokens': 1800, 'messages': [{'role': 'user', 'content': prompt}]}, timeout=60)
+        resp.raise_for_status()
+        return resp.json()['content'][0]['text']
+    except Exception:
+        return None
 
 @app.post('/api/tailor')
 def tailor(payload: TailorIn):
