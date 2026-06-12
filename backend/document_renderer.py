@@ -140,10 +140,12 @@ def merge_resume_data(data: dict[str, Any] | None) -> dict[str, Any]:
     out['additional'] = additional or base['additional']
     custom = []
     for section in src.get('custom_sections') or []:
+        if section.get('hidden'):
+            continue
         title = strip_html(section.get('title'))
         bullets = [strip_html(x) for x in section.get('bullets', []) if has_text(x)]
         if title or bullets:
-            custom.append({'title': title or 'Additional Information', 'bullets': bullets})
+            custom.append({'title': title or 'Additional Information', 'bullets': bullets, 'hidden': False})
     out['custom_sections'] = custom
     return apply_section_state(out, src)
 
@@ -504,23 +506,29 @@ def render_docx_sidebar(doc: Document, data: dict[str, Any], template: str, *, d
     left.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
     right.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
     c = data['contact']
-    p = left.paragraphs[0]
-    add_run(p, c['name'], bold=True, color='ffffff' if dark else '0f172a', size=18, font='Calibri')
-    p2 = left.add_paragraph()
-    add_run(p2, c['title'], color='93c5fd' if dark else '475569', size=9.5)
-    sidebar_heading(left, 'Contact', dark)
-    for item in [c.get('email'), c.get('phone'), c.get('location'), c.get('linkedin'), c.get('portfolio')]:
-        if item:
+    if section_visible(data, 'contact'):
+        p = left.paragraphs[0]
+        add_run(p, c['name'], bold=True, color='ffffff' if dark else '0f172a', size=18, font='Calibri')
+        p2 = left.add_paragraph()
+        add_run(p2, c['title'], color='93c5fd' if dark else '475569', size=9.5)
+        contact_values = [c.get('email'), c.get('phone'), c.get('location'), c.get('linkedin'), c.get('portfolio')]
+        if any(contact_values):
+            sidebar_heading(left, section_title(data, 'contact'), dark)
+            for item in contact_values:
+                if item:
+                    p = left.add_paragraph()
+                    add_run(p, item, color='ffffff' if dark else '334155', size=8.2)
+    skill_values = [x for row in data['skills'] for x in row if x]
+    if section_visible(data, 'skills') and skill_values:
+        sidebar_heading(left, section_title(data, 'skills'), dark)
+        for skill in skill_values:
             p = left.add_paragraph()
-            add_run(p, item, color='ffffff' if dark else '334155', size=8.2)
-    sidebar_heading(left, 'Skills', dark)
-    for skill in [x for row in data['skills'] for x in row if x]:
-        p = left.add_paragraph()
-        add_run(p, skill, color='ffffff' if dark else '0f172a', size=8.4, font='Consolas' if template == 'technical' else 'Calibri')
-    sidebar_heading(left, 'Certifications', dark)
-    for cert in data['certifications']:
-        p = left.add_paragraph()
-        add_run(p, cert, color='ffffff' if dark else '334155', size=8.2)
+            add_run(p, skill, color='ffffff' if dark else '0f172a', size=8.4, font='Consolas' if template == 'technical' else 'Calibri')
+    if section_visible(data, 'certifications') and data.get('certifications'):
+        sidebar_heading(left, section_title(data, 'certifications'), dark)
+        for cert in data['certifications']:
+            p = left.add_paragraph()
+            add_run(p, cert, color='ffffff' if dark else '334155', size=8.2)
     render_docx_body(right, data, template)
 
 
@@ -534,23 +542,45 @@ def sidebar_heading(container, text: str, dark: bool) -> None:
 
 def render_docx_ats(doc: Document, data: dict[str, Any]) -> None:
     c = data['contact']
-    for text, bold in [(c['name'], True), (c['title'], False), (contact_line(c), False)]:
-        p = doc.add_paragraph()
-        add_run(p, text, bold=bold, size=10.5, font='Arial')
-    for heading, body in [('Professional Summary', [data['summary']]), ('Areas of Expertise', [' | '.join(x for r in data['skills'] for x in r if x)]), ('Technical Proficiencies', [f'{k}: {v}' for k, v in data['technical'].items()])]:
-        section_heading(doc, heading, 'ats-optimized')
-        for line in body:
-            doc.add_paragraph(line)
-    section_heading(doc, 'Career Experience', 'ats-optimized')
-    for job in data['experience']:
-        doc.add_paragraph(' | '.join(x for x in [job.get('title'), job.get('company'), job.get('location'), job.get('dates')] if x))
-        for bullet in job.get('bullets', []):
+    if section_visible(data, 'contact'):
+        for text, bold in [(c['name'], True), (c['title'], False), (contact_line(c), False)]:
+            if text:
+                p = doc.add_paragraph()
+                add_run(p, text, bold=bold, size=10.5, font='Arial')
+    sections = [
+        ('summary', [data.get('summary', '')]),
+        ('skills', [' | '.join(x for r in data.get('skills', []) for x in r if x)]),
+        ('technical', [f'{k}: {v}' for k, v in data.get('technical', {}).items()]),
+    ]
+    for key, body in sections:
+        body = [line for line in body if line]
+        if section_visible(data, key) and body:
+            section_heading(doc, section_title(data, key), 'ats-optimized')
+            for line in body:
+                doc.add_paragraph(line)
+    if section_visible(data, 'experience') and data.get('experience'):
+        section_heading(doc, section_title(data, 'experience'), 'ats-optimized')
+        for job in data['experience']:
+            doc.add_paragraph(' | '.join(x for x in [job.get('title'), job.get('company'), job.get('location'), job.get('dates')] if x))
+            for bullet in job.get('bullets', []):
+                doc.add_paragraph(bullet)
+    if section_visible(data, 'education') and data.get('education'):
+        section_heading(doc, section_title(data, 'education'), 'ats-optimized')
+        for e in data['education']:
+            doc.add_paragraph(' | '.join(x for x in [e.get('degree'), e.get('school'), e.get('details')] if x))
+    if section_visible(data, 'certifications') and data.get('certifications'):
+        section_heading(doc, section_title(data, 'certifications'), 'ats-optimized')
+        doc.add_paragraph(' | '.join(data['certifications']))
+    if section_visible(data, 'additional') and data.get('additional'):
+        section_heading(doc, section_title(data, 'additional'), 'ats-optimized')
+        for item in data['additional']:
+            doc.add_paragraph(item)
+    for custom in data.get('custom_sections', []):
+        if custom.get('hidden'):
+            continue
+        section_heading(doc, custom.get('title', 'Additional Information'), 'ats-optimized')
+        for bullet in custom.get('bullets', []):
             doc.add_paragraph(bullet)
-    section_heading(doc, 'Education', 'ats-optimized')
-    for e in data['education']:
-        doc.add_paragraph(' | '.join(x for x in [e.get('degree'), e.get('school'), e.get('details')] if x))
-    section_heading(doc, 'Certifications', 'ats-optimized')
-    doc.add_paragraph(' | '.join(data['certifications']))
 
 
 def contact_line(c: dict[str, Any]) -> str:
@@ -765,13 +795,28 @@ def pdf_sidebar(data: dict[str, Any], template: str, dark: bool) -> list[Any]:
         side_name_style = ParagraphStyle('sidename', parent=sidebar_style, fontName='Helvetica-Bold', fontSize=15, leading=17)
         side_head_style = ParagraphStyle('sideh', parent=sidebar_style, fontName='Helvetica-Bold', textColor=colors.HexColor('#0f172a'))
         main_parts = pdf_body(data, template, styles)
-    side_parts: list[Any] = [P(c['name'], side_name_style), P(c['title'], sidebar_style), Spacer(1, 8)]
-    for head, values in [('Contact', [c.get('email'), c.get('phone'), c.get('location'), c.get('linkedin'), c.get('portfolio')]), ('Skills', [x for row in data['skills'] for x in row if x]), ('Certifications', data['certifications'])]:
-        side_parts.append(P(head.upper(), side_head_style))
+    side_parts: list[Any] = []
+    if section_visible(data, 'contact'):
+        if c.get('name'):
+            side_parts.append(P(c['name'], side_name_style))
+        if c.get('title'):
+            side_parts.append(P(c['title'], sidebar_style))
+        side_parts.append(Spacer(1, 8))
+    sidebar_sections = [
+        ('contact', [c.get('email'), c.get('phone'), c.get('location'), c.get('linkedin'), c.get('portfolio')]),
+        ('skills', [x for row in data['skills'] for x in row if x]),
+        ('certifications', data['certifications']),
+    ]
+    for key, values in sidebar_sections:
+        values = [v for v in values if v]
+        if not (section_visible(data, key) and values):
+            continue
+        side_parts.append(P(section_title(data, key).upper(), side_head_style))
         for v in values:
-            if v:
-                side_parts.append(P(v, sidebar_style))
+            side_parts.append(P(v, sidebar_style))
         side_parts.append(Spacer(1, 6))
+    if not side_parts:
+        side_parts = [Spacer(1, 1)]
     side_frame = KeepInFrame(side_frame_width, frame_height, side_parts, mode='shrink')
     main_frame = KeepInFrame(main_frame_width, frame_height, main_parts, mode='shrink')
     table = Table([[side_frame, main_frame]], colWidths=[left_col, right_col], rowHeights=[row_height])
