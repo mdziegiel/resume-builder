@@ -50,7 +50,7 @@ body { margin: 0; background: radial-gradient(circle at 15% 0%, rgba(249,115,22,
 .resume-section { margin-top: 16px; }
 .resume-section-title { margin: 18px 0 8px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .16em; color: #f97316; }
 .skill-table { width: 100%; margin-top: 8px; table-layout: fixed; border-collapse: collapse; }
-.skill-table td { border: 0; padding: 4px 14px 4px 0; color: #1f2937; vertical-align: top; }
+.skill-table td { border: 0; padding: 4px 14px 4px 0; color: #1f2937; vertical-align: top; white-space: nowrap; font-size: 11.2px; }
 .skill-table td::before { content: ""; display: inline-block; width: 4px; height: 4px; margin-right: 8px; border-radius: 999px; background: currentColor; vertical-align: middle; }
 .skill-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .skill-chips span { display: inline-block; border-radius: 999px; padding: 5px 9px; font-size: 11.5px; font-weight: 700; }

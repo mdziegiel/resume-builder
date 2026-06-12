@@ -458,11 +458,12 @@ def add_skills_table(container, skills: list[list[str]], template: str) -> None:
             cell.text = row[j] if j < len(row) else ''
             for p in cell.paragraphs:
                 for r in p.runs:
-                    r.font.size = Pt(8.2)
+                    r.font.size = Pt(7.4)
                 p.paragraph_format.keep_together = True
             tc_pr = cell._tc.get_or_add_tcPr()
-            no_wrap = OxmlElement('w:noWrap')
-            tc_pr.append(no_wrap)
+            if tc_pr.find(qn('w:noWrap')) is None:
+                no_wrap = OxmlElement('w:noWrap')
+                tc_pr.append(no_wrap)
             cell_margins(cell, 34, 42, 34, 42)
             if template == 'two-column':
                 shade_cell(cell, 'e2e8f0')
@@ -607,6 +608,10 @@ def P(text: str, style: ParagraphStyle) -> Paragraph:
     return Paragraph(html.escape(strip_html(text)).replace('\n', '<br/>'), style)
 
 
+def P_nowrap(text: str, style: ParagraphStyle) -> Paragraph:
+    return Paragraph(html.escape(strip_html(text)).replace(' ', '&nbsp;'), style)
+
+
 def pdf_heading(text: str, template: str, styles: dict[str, ParagraphStyle]):
     color = {'modern': '#f97316', 'executive': '#071832', 'corporate': '#071832'}.get(template, '#111827')
     bg = '#fff7ed' if template == 'modern' else None
@@ -668,10 +673,10 @@ def pdf_body(data: dict[str, Any], template: str, styles: dict[str, ParagraphSty
         elif template in ('two-column',):
             story.append(chip_table([x for row in data['skills'] for x in row if x], '#e2e8f0'))
         else:
-            skill_style = ParagraphStyle('skillwrap', parent=styles['body'], fontSize=7.4, leading=8.8, splitLongWords=True)
-            rows = [[P(c, skill_style) for c in row] for row in data['skills']]
-            t = Table(rows, colWidths=[2.48 * inch, 2.48 * inch, 2.48 * inch])
-            t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 1)]))
+            skill_style = ParagraphStyle('skill-nowrap', parent=styles['body'], fontSize=6.9, leading=8.2, splitLongWords=False)
+            rows = [[P_nowrap(c, skill_style) for c in row] for row in data['skills']]
+            t = Table(rows, colWidths=[2.48 * inch, 2.48 * inch, 2.48 * inch], splitByRow=0)
+            t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 1), ('BOTTOMPADDING', (0, 0), (-1, -1), 0), ('FONTSIZE', (0, 0), (-1, -1), 6.9), ('LEADING', (0, 0), (-1, -1), 8.2)]))
             story.append(t)
     if section_visible(data, 'technical') and data.get('technical'):
         story += pdf_heading(section_title(data, 'technical'), template, styles)
