@@ -307,22 +307,114 @@ function defaultLetter(kind, resume) {
   return `${name}\n${contact}\n\n${date}\n\n[Company Name]\n[Company Address]\n\nDear Hiring Manager,\n\nI am writing to express my interest in the [Position Title] role with [Company Name]. My background in [relevant discipline], combined with hands-on experience in [key skill area], aligns well with the needs of your team.\n\nIn previous roles, I have delivered measurable results by [achievement one], [achievement two], and [achievement three]. I bring a practical, professional approach to solving problems, supporting stakeholders, and improving operational outcomes.\n\nI would welcome the opportunity to discuss how my experience can support your organization. Thank you for your time and consideration.\n\nSincerely,\n${name}`
 }
 function LetterBuilder({ kind, title, resumes }) {
-  const [mode, setMode] = useState('choose'), [docs, setDocs] = useState([]), [doc, setDoc] = useState(null), [resumeId, setResumeId] = useState('')
+  const [mode, setMode] = useState('choose')
+  const [docs, setDocs] = useState([])
+  const [doc, setDoc] = useState(null)
+  const [resumeId, setResumeId] = useState('')
   const [cover, setCover] = useState({ company: '', hiring_manager: 'Hiring Manager', job_description: '' })
   const [thanks, setThanks] = useState({ interviewer: '', company: '', position: '', interview_date: '', talking_points: '' })
   const refresh = () => api(`/documents?kind=${kind}`).then(setDocs)
+  const backLabel = kind === 'cover_letter' ? 'Back to Cover Letter' : 'Back to Thank You Letter'
   useEffect(() => { refresh() }, [kind])
   const linked = resumes.find(r => String(r.id) === String(resumeId))
-  async function scratch() { const payload = { kind, title: kind === 'cover_letter' ? 'Cover Letter Draft' : 'Thank You Letter Draft', resume_id: resumeId ? Number(resumeId) : null, data: { content: defaultLetter(kind, linked), sender_name: linked?.data?.contact?.name || '', sender_contact: linked ? [linked.data.contact.email, linked.data.contact.phone, linked.data.contact.location, linked.data.contact.linkedin].filter(Boolean).join(' | ') : '' } }; const saved = await api('/documents', { method: 'POST', body: JSON.stringify(payload) }); setDoc(saved); setMode('edit'); refresh() }
-  async function generate() { const endpoint = kind === 'cover_letter' ? '/cover-letter' : '/thank-you'; const payload = kind === 'cover_letter' ? { ...cover, resume_id: resumeId ? Number(resumeId) : null } : { ...thanks, resume_id: resumeId ? Number(resumeId) : null }; const saved = await api(endpoint, { method: 'POST', body: JSON.stringify(payload) }); setDoc(saved); setMode('edit'); refresh() }
-  if (mode === 'edit' && doc) return <LetterEditor doc={doc} setDoc={setDoc} refresh={refresh} resumes={resumes} />
-  return <div className="glass p-6"><div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-3xl font-black"><FileText className="mr-2 inline h-7 w-7 text-orange-400" />{title}</h2><p className="text-slate-400">Always accessible. Generate with AI, write from scratch, or load a saved letter. No resume gatekeeping.</p></div></div><div className="grid gap-6 lg:grid-cols-3"><section className="rounded-2xl border border-white/10 bg-black/20 p-4"><h3 className="text-xl font-black text-orange-300">Generate with AI</h3><label className="mb-2 mt-3 block text-sm text-slate-400">Optional saved resume<select className="input mt-1" value={resumeId} onChange={e => setResumeId(e.target.value)}><option value="">No linked resume</option>{resumes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>{kind === 'cover_letter' ? <><Input label="Company" v={cover.company} on={v => setCover({ ...cover, company: v })} /><Input label="Hiring manager" v={cover.hiring_manager} on={v => setCover({ ...cover, hiring_manager: v })} /><label className="mb-2 block text-sm text-slate-400">Job description<textarea className="input mt-1 h-36" value={cover.job_description} onChange={e => setCover({ ...cover, job_description: e.target.value })} /></label></> : <><Input label="Interviewer name" v={thanks.interviewer} on={v => setThanks({ ...thanks, interviewer: v })} /><Input label="Company" v={thanks.company} on={v => setThanks({ ...thanks, company: v })} /><Input label="Position" v={thanks.position} on={v => setThanks({ ...thanks, position: v })} /><Input type="date" label="Interview date" v={thanks.interview_date} on={v => setThanks({ ...thanks, interview_date: v })} /><label className="mb-2 block text-sm text-slate-400">Key talking points<textarea className="input mt-1 h-28" value={thanks.talking_points} onChange={e => setThanks({ ...thanks, talking_points: e.target.value })} /></label></>}<button className="btn btn-primary mt-2" onClick={generate}><Wand2 className="mr-1 inline h-4 w-4" />Generate with AI</button></section><section className="rounded-2xl border border-white/10 bg-black/20 p-4"><h3 className="text-xl font-black text-orange-300">Write from scratch</h3><p className="mt-2 text-sm text-slate-400">Starts with a professional printed-letter template. Link a saved resume first if you want letterhead filled automatically.</p><button className="btn btn-primary mt-4" onClick={scratch}>Start Blank Letter</button></section><section className="rounded-2xl border border-white/10 bg-black/20 p-4"><h3 className="text-xl font-black text-orange-300">Load from saved</h3><div className="mt-3 max-h-[420px] overflow-auto scrollbar">{docs.length === 0 ? <p className="text-sm text-slate-400">No saved letters yet.</p> : docs.map(d => <button key={d.id} className="mb-2 w-full rounded-xl border border-white/10 p-3 text-left hover:border-orange-400" onClick={() => { setDoc(d); setMode('edit') }}><div className="font-bold">{d.title}</div><div className="text-xs text-slate-500">{new Date(d.updated_at).toLocaleString()}</div></button>)}</div></section></div></div>
+  async function scratch() {
+    const payload = {
+      kind,
+      title: kind === 'cover_letter' ? 'Cover Letter Draft' : 'Thank You Letter Draft',
+      resume_id: resumeId ? Number(resumeId) : null,
+      data: {
+        content: defaultLetter(kind, linked),
+        sender_name: linked?.data?.contact?.name || '',
+        sender_contact: linked ? [linked.data.contact.email, linked.data.contact.phone, linked.data.contact.location, linked.data.contact.linkedin].filter(Boolean).join(' | ') : ''
+      }
+    }
+    const saved = await api('/documents', { method: 'POST', body: JSON.stringify(payload) })
+    setDoc(saved)
+    setMode('edit')
+    refresh()
+  }
+  async function generate() {
+    const endpoint = kind === 'cover_letter' ? '/cover-letter' : '/thank-you'
+    const payload = kind === 'cover_letter' ? { ...cover, resume_id: resumeId ? Number(resumeId) : null } : { ...thanks, resume_id: resumeId ? Number(resumeId) : null }
+    const saved = await api(endpoint, { method: 'POST', body: JSON.stringify(payload) })
+    setDoc(saved)
+    setMode('edit')
+    refresh()
+  }
+  async function deleteSavedLetter(e, id) {
+    e.stopPropagation()
+    if (!confirm('Delete this saved letter?')) return
+    await api(`/documents/${id}`, { method: 'DELETE' })
+    if (doc?.id === id) setDoc(null)
+    await refresh()
+  }
+  function openSavedLetter(savedDoc) {
+    setDoc(savedDoc)
+    setMode('edit')
+  }
+  function returnToMain() {
+    setDoc(null)
+    setMode('choose')
+    refresh()
+  }
+  if (mode === 'edit' && doc) return <LetterEditor doc={doc} setDoc={setDoc} refresh={refresh} resumes={resumes} backLabel={backLabel} onBack={returnToMain} />
+  return <div className="glass p-6">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div><h2 className="text-3xl font-black"><FileText className="mr-2 inline h-7 w-7 text-orange-400" />{title}</h2><p className="text-slate-400">Always accessible. Generate with AI, write from scratch, or load a saved letter. No resume gatekeeping.</p></div>
+    </div>
+    <div className="grid gap-6 lg:grid-cols-3">
+      <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+        <h3 className="text-xl font-black text-orange-300">Generate with AI</h3>
+        <label className="mb-2 mt-3 block text-sm text-slate-400">Optional saved resume<select className="input mt-1" value={resumeId} onChange={e => setResumeId(e.target.value)}><option value="">No linked resume</option>{resumes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
+        {kind === 'cover_letter' ? <><Input label="Company" v={cover.company} on={v => setCover({ ...cover, company: v })} /><Input label="Hiring manager" v={cover.hiring_manager} on={v => setCover({ ...cover, hiring_manager: v })} /><label className="mb-2 block text-sm text-slate-400">Job description<textarea className="input mt-1 h-36" value={cover.job_description} onChange={e => setCover({ ...cover, job_description: e.target.value })} /></label></> : <><Input label="Interviewer name" v={thanks.interviewer} on={v => setThanks({ ...thanks, interviewer: v })} /><Input label="Company" v={thanks.company} on={v => setThanks({ ...thanks, company: v })} /><Input label="Position" v={thanks.position} on={v => setThanks({ ...thanks, position: v })} /><Input type="date" label="Interview date" v={thanks.interview_date} on={v => setThanks({ ...thanks, interview_date: v })} /><label className="mb-2 block text-sm text-slate-400">Key talking points<textarea className="input mt-1 h-28" value={thanks.talking_points} onChange={e => setThanks({ ...thanks, talking_points: e.target.value })} /></label></>}
+        <button className="btn btn-primary mt-2" onClick={generate}><Wand2 className="mr-1 inline h-4 w-4" />Generate with AI</button>
+      </section>
+      <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+        <h3 className="text-xl font-black text-orange-300">Write from scratch</h3>
+        <p className="mt-2 text-sm text-slate-400">Starts with a professional printed-letter template. Link a saved resume first if you want letterhead filled automatically.</p>
+        <button className="btn btn-primary mt-4" onClick={scratch}>Start Blank Letter</button>
+      </section>
+      <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+        <h3 className="text-xl font-black text-orange-300">Load from saved</h3>
+        <div className="mt-3 max-h-[420px] overflow-auto scrollbar">
+          {docs.length === 0 ? <p className="text-sm text-slate-400">No saved letters yet.</p> : docs.map(d => <div key={d.id} className="relative mb-2 w-full rounded-xl border border-white/10 p-3 pr-12 text-left hover:border-orange-400" role="button" tabIndex={0} onClick={() => openSavedLetter(d)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') openSavedLetter(d) }}>
+            <button className="absolute right-3 top-3 rounded-full bg-red-500/15 p-2 text-red-300 hover:bg-red-500/30" onClick={(e) => deleteSavedLetter(e, d.id)} title="Delete saved letter" aria-label={`Delete ${d.title}`}><Trash2 className="h-4 w-4" /></button>
+            <div className="font-bold">{d.title}</div>
+            <div className="text-xs text-slate-500">{new Date(d.updated_at).toLocaleString()}</div>
+          </div>)}
+        </div>
+      </section>
+    </div>
+  </div>
 }
-function LetterEditor({ doc, setDoc, refresh, resumes }) {
+function LetterEditor({ doc, setDoc, refresh, resumes, backLabel = 'Back to Letters', onBack }) {
   const [content, setContent] = useState(doc.data.content || '')
-  async function save() { const payload = { kind: doc.kind, title: doc.title, resume_id: doc.resume_id, data: { ...(doc.data || {}), content } }; const saved = await api(`/documents/${doc.id}`, { method: 'PUT', body: JSON.stringify(payload) }); setDoc(saved); refresh() }
-  async function remove() { if (!confirm('Delete this saved letter?')) return; await api(`/documents/${doc.id}`, { method: 'DELETE' }); setDoc(null); refresh() }
-  return <div className="grid gap-6 xl:grid-cols-[520px_1fr]"><section className="glass max-h-[calc(100vh-130px)] overflow-auto p-5 scrollbar"><div className="mb-4 flex flex-wrap gap-2"><button className="btn btn-primary" onClick={save}><Save className="mr-1 inline h-4 w-4" />Save</button><a className="btn" href={`/api/documents/${doc.id}/export/docx`}><Download className="mr-1 inline h-4 w-4" />Word</a><a className="btn" href={`/api/documents/${doc.id}/export/pdf`}>PDF</a><button className="btn" onClick={() => setDoc(null)}>Back</button><button className="btn" onClick={remove}><Trash2 className="mr-1 inline h-4 w-4" />Delete</button></div><Input label="Document title" v={doc.title} on={v => setDoc({ ...doc, title: v })} /><label className="mb-2 block text-sm text-slate-400">Letter content<textarea className="input mt-1 h-[620px] whitespace-pre-wrap font-mono text-sm" value={content} onChange={e => setContent(e.target.value)} /></label></section><section className="overflow-auto scrollbar"><LetterPreview content={content} /></section></div>
+  useEffect(() => { setContent(doc.data.content || '') }, [doc.id])
+  async function save() {
+    const payload = { kind: doc.kind, title: doc.title, resume_id: doc.resume_id, data: { ...(doc.data || {}), content } }
+    const saved = await api(`/documents/${doc.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+    setDoc(saved)
+    refresh()
+  }
+  async function remove() {
+    if (!confirm('Delete this saved letter?')) return
+    await api(`/documents/${doc.id}`, { method: 'DELETE' })
+    onBack ? onBack() : setDoc(null)
+  }
+  return <div className="grid gap-6 xl:grid-cols-[520px_1fr]">
+    <section className="glass max-h-[calc(100vh-130px)] overflow-auto p-5 scrollbar">
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button className="btn" onClick={onBack || (() => setDoc(null))}><ArrowLeft className="mr-1 inline h-4 w-4" />{backLabel}</button>
+        <button className="btn btn-primary" onClick={save}><Save className="mr-1 inline h-4 w-4" />Save</button>
+        <a className="btn" href={`/api/documents/${doc.id}/export/docx`}><Download className="mr-1 inline h-4 w-4" />Word</a>
+        <a className="btn" href={`/api/documents/${doc.id}/export/pdf`}>PDF</a>
+        <button className="btn" onClick={remove}><Trash2 className="mr-1 inline h-4 w-4" />Delete</button>
+      </div>
+      <Input label="Document title" v={doc.title} on={v => setDoc({ ...doc, title: v })} />
+      <label className="mb-2 block text-sm text-slate-400">Letter content<textarea className="input mt-1 h-[620px] whitespace-pre-wrap font-mono text-sm" value={content} onChange={e => setContent(e.target.value)} /></label>
+    </section>
+    <section className="overflow-auto scrollbar"><LetterPreview content={content} /></section>
+  </div>
 }
 function LetterPreview({ content }) { return <article className="letter-page"><div className="whitespace-pre-wrap text-[15px] leading-7 text-gray-900">{content}</div></article> }
 function RoleBuilder({ setCurrent, setPage }) { const [roles, setRoles] = useState({}), [title, setTitle] = useState('Senior Network Administrator'), [industry, setIndustry] = useState('Information Technology'), [built, setBuilt] = useState(null); useEffect(() => { api('/roles').then(setRoles) }, []); async function build() { setBuilt(await api('/role-build', { method: 'POST', body: JSON.stringify({ title, industry }) })) } async function saveDraft() { const r = await api('/resumes', { method: 'POST', body: JSON.stringify({ name: `${title} Draft`, title, template: 'modern', data: built.resume }) }); setCurrent(r); setPage('editor') } return <div className="grid gap-6 lg:grid-cols-[420px_1fr]"><section className="glass p-6"><h2 className="text-2xl font-black">Position / Role Builder</h2><Input label="Target industry" v={industry} on={setIndustry} /><Input label="Selected title" v={title} on={setTitle} /><button className="btn btn-primary mt-2" onClick={build}>Build Resume Draft</button><div className="mt-4 max-h-[560px] overflow-auto scrollbar">{Object.entries(roles).map(([cat, rs]) => <div key={cat} className="mb-4"><h3 className="font-bold text-orange-300">{cat}</h3>{rs.map(r => <button key={r.title} onClick={() => setTitle(r.title)} className="mb-1 mr-1 rounded-full border border-white/10 px-3 py-1 text-sm hover:border-orange-400">{r.below_target ? '⚠ ' : ''}{r.title}</button>)}</div>)}</div></section><section>{built && <><div className="mb-4 flex justify-end"><button className="btn btn-primary" onClick={saveDraft}>Save Draft & Edit</button></div><PdfPreview data={built.resume} template="modern" /></>}</section></div> }
