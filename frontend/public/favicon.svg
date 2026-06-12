@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="resume favicon"><rect width="64" height="64" rx="14" fill="#0f172a"/><rect x="3" y="3" width="58" height="58" rx="12" fill="none" stroke="#35f27d" stroke-opacity=".38" stroke-width="2"/><circle cx="48" cy="14" r="18" fill="#35f27d" opacity=".08"/><path d="M18 10h22l8 8v36H18V10Z" fill="#35f27d" opacity=".18" stroke="#35f27d" stroke-width="3"/>
+<path d="M40 10v10h10" fill="none" stroke="#35f27d" stroke-width="3" stroke-linejoin="round"/>
+<path d="M24 29h20M24 38h20M24 47h13" stroke="#35f27d" stroke-width="4" stroke-linecap="round"/>
+<circle cx="27" cy="21" r="4" fill="#14b85c"/></svg>
