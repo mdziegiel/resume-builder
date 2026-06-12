@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowLeft, Download, Eye, EyeOff, FileText, Plus, Save, Sparkles, Trash2, Upload, Wand2 } from 'lucide-react'
+import { ArrowLeft, Download, Eye, EyeOff, FileText, Info, Moon, Plus, Save, Sparkles, Sun, Trash2, Upload, Wand2, X } from 'lucide-react'
 import './index.css'
 
 const API = '/api'
@@ -74,14 +74,20 @@ function App() {
   const [page, setPage] = useState('editor')
   const [resumes, setResumes] = useState([])
   const [current, setCurrent] = useState(null)
+  const [theme, setTheme] = useSuiteTheme()
+  const [aboutOpen, setAboutOpen] = useState(false)
   const load = () => api('/resumes').then(r => { setResumes(r); if (current && !r.find(x => x.id === current.id)) setCurrent(null) })
   useEffect(() => { load() }, [])
   return <div className="min-h-screen">
-    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#06070d]/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#06070d]/80 backdrop-blur-xl suite-header">
+      <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-6 py-4">
         <div><h1 className="text-2xl font-black">Resume & Career Document Builder</h1><p className="text-sm text-slate-400">Premium self-hosted career tooling</p></div>
-        <nav className="flex flex-wrap gap-2">{[['dashboard', 'Dashboard'], ['editor', 'Resume Builder'], ['cover', 'Cover Letter'], ['thanks', 'Thank You'], ['roles', 'Role Builder']].map(x => <button key={x[0]} onClick={() => { if (x[0] === 'editor') setCurrent(null); setPage(x[0]) }} className={`btn ${page === x[0] ? 'btn-primary' : ''}`}>{x[1]}</button>)}</nav>
+        <div className="header-actions">
+          <nav className="flex flex-wrap justify-end gap-2">{[['dashboard', 'Dashboard'], ['editor', 'Resume Builder'], ['cover', 'Cover Letter'], ['thanks', 'Thank You'], ['roles', 'Role Builder']].map(x => <button key={x[0]} onClick={() => { if (x[0] === 'editor') setCurrent(null); setPage(x[0]) }} className={`btn ${page === x[0] ? 'btn-primary' : ''}`}>{x[1]}</button>)}</nav>
+          <SuiteIconBar theme={theme} setTheme={setTheme} setAboutOpen={setAboutOpen} repoUrl="https://github.com/mdziegiel/resume-builder" />
+        </div>
       </div>
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} name="Resume Builder" version="1.0.0" description="Self-hosted resume, cover letter, thank-you letter, role-builder, preview, and export tooling for career documents." />}
     </header>
     <main className="mx-auto max-w-7xl px-6 py-8">
       {page === 'dashboard' && <Dashboard resumes={resumes} setCurrent={setCurrent} setPage={setPage} reload={load} />}
@@ -90,6 +96,32 @@ function App() {
       {page === 'thanks' && <LetterBuilder kind="thank_you" title="Thank You Letter Builder" resumes={resumes} />}
       {page === 'roles' && <RoleBuilder setCurrent={setCurrent} setPage={setPage} />}
     </main>
+  </div>
+}
+
+function useSuiteTheme() {
+  const [theme, setThemeState] = useState(() => localStorage.getItem('suite-theme') || 'dark')
+  useEffect(() => { document.body.classList.toggle('suite-light', theme === 'light'); localStorage.setItem('suite-theme', theme) }, [theme])
+  const setTheme = () => setThemeState(t => t === 'dark' ? 'light' : 'dark')
+  return [theme, setTheme]
+}
+function GithubMark() { return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.31-5.47-1.34-5.47-5.94 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.53.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.63-5.48 5.93.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.57A12 12 0 0 0 12 .5Z" /></svg> }
+function SuiteIconBar({ theme, setTheme, setAboutOpen, repoUrl }) {
+  return <div className="suite-iconbar" aria-label="Application links">
+    <a className="suite-icon" href={repoUrl} target="_blank" rel="noreferrer" aria-label="GitHub repository" title="GitHub"><GithubMark /></a>
+    <button className="suite-icon" type="button" onClick={() => setAboutOpen(true)} aria-label="About" title="About"><Info /></button>
+    <button className="suite-icon" type="button" onClick={setTheme} aria-label="Toggle theme" title="Toggle theme">{theme === 'dark' ? <Sun /> : <Moon />}</button>
+  </div>
+}
+function AboutModal({ name, version, description, onClose }) {
+  return <div className="suite-modal-backdrop" role="dialog" aria-modal="true" aria-label={`About ${name}`} onClick={onClose}>
+    <div className="suite-modal" onClick={e => e.stopPropagation()}>
+      <button className="suite-modal-close" type="button" onClick={onClose} aria-label="Close"><X /></button>
+      <div className="suite-modal-kicker">About</div>
+      <h2>{name}</h2>
+      <p className="suite-modal-version">Version {version}</p>
+      <p>{description}</p>
+    </div>
   </div>
 }
 
