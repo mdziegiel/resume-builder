@@ -69,6 +69,7 @@ class ThankYouIn(BaseModel):
 class RoleBuildIn(BaseModel):
     title: str
     industry: str = 'Information Technology'
+    category: Optional[str] = None
 
 class ImportConfirmIn(BaseModel):
     filename: str = 'Imported Resume'
@@ -518,6 +519,7 @@ ROLE_SPECIALIZATIONS: dict[str, dict[str, Any]] = {
         'verbs': ['administered Microsoft 365 collaboration workloads', 'implemented DLP and retention policies', 'automated Exchange Online and Teams administration tasks']
     },
 }
+ROLE_SPECIALIZATIONS['microsoft 365 engineer'] = ROLE_SPECIALIZATIONS['m365 engineer']
 
 CATEGORY_PROFILES: dict[str, dict[str, Any]] = {
     'Network Administration': {'skills': ['Routing / Switching', 'Firewall Administration', 'VPN Operations', 'Network Monitoring', 'Incident Response', 'Documentation', 'Wireless Networks', 'DNS / DHCP', 'Change Control', 'Vendor Coordination', 'Capacity Planning', 'Security Segmentation'], 'certs': ['CompTIA Network+', 'CCNA'], 'technical': {'Network': 'routing, switching, VLANs, firewall policy, VPN, wireless, DNS/DHCP', 'Operations': 'monitoring, diagrams, change control, vendor escalation, incident response'}},
@@ -535,6 +537,49 @@ CATEGORY_PROFILES: dict[str, dict[str, Any]] = {
     'Operations & Business Support': {'skills': ['Project Coordination', 'Process Improvement', 'Vendor Management', 'Compliance Tracking', 'Client Service', 'Reporting', 'SOP Documentation', 'Cross-Functional Support', 'Scheduling', 'Budget Support', 'Risk Follow-Up', 'Service Delivery'], 'certs': ['Certified Associate in Project Management (CAPM)', 'Lean Six Sigma Yellow Belt'], 'technical': {'Operations Tools': 'Microsoft 365, project trackers, CRM, ticketing/workflow tools, reporting dashboards', 'Business Support': 'SOPs, vendor follow-up, compliance logs, client communication, process metrics'}},
 }
 
+ROLE_FOCUS_LIBRARY: dict[str, list[str]] = {
+    'network': ['Cisco IOS', 'VLAN design', 'BGP/OSPF routing', 'pfSense policy', 'Wireshark packet analysis', 'CCNA-level troubleshooting'],
+    'systems': ['Windows Server', 'Active Directory', 'Group Policy', 'PowerShell automation', 'backup validation', 'patch governance'],
+    'endpoint': ['Microsoft Intune', 'Windows Autopilot', 'compliance policies', 'configuration profiles', 'MD-102 readiness', 'SCCM co-management'],
+    'm365': ['Exchange Online', 'SharePoint Online', 'Teams administration', 'DLP policies', 'MS-102 readiness', 'Power Platform'],
+    'azure': ['ARM templates', 'VNets', 'NSGs', 'Entra ID', 'AZ-104 readiness', 'Azure RBAC'],
+    'security': ['SIEM triage', 'EDR response', 'vulnerability remediation', 'access reviews', 'hardening baselines', 'incident documentation'],
+    'executive': ['executive calendar control', 'board packet preparation', 'travel logistics', 'confidential correspondence', 'meeting orchestration', 'expense reconciliation'],
+    'accounting': ['general ledger', 'month-end close', 'account reconciliations', 'financial reporting', 'audit support', 'Excel analysis'],
+    'tax': ['1040/1120/1065 returns', 'tax planning', 'workpaper review', 'client advisory', 'tax research', 'deadline management'],
+    'bookkeeping': ['QuickBooks', 'bank reconciliations', 'AP/AR processing', 'payroll coordination', 'sales tax filings', 'monthly financial packages'],
+    'payroll': ['payroll processing', 'timecard audits', 'benefit deductions', 'tax deposits', 'year-end W-2s', 'payroll compliance'],
+    'audit': ['audit workpapers', 'PBC tracking', 'substantive testing', 'control walkthroughs', 'sampling documentation', 'engagement binders'],
+    'hr': ['HRIS data quality', 'onboarding workflows', 'benefits administration', 'employee records', 'policy communication', 'compliance tracking'],
+    'recruiting': ['ATS coordination', 'interview scheduling', 'candidate pipeline updates', 'offer processing', 'background checks', 'hiring manager follow-up'],
+    'legal': ['matter management', 'eFiling', 'discovery support', 'pleading preparation', 'docket control', 'client file maintenance'],
+    'healthcare': ['EHR workflows', 'patient scheduling', 'insurance verification', 'HIPAA controls', 'referral tracking', 'revenue-cycle support'],
+    'real_estate': ['lease administration', 'tenant relations', 'property budgets', 'vendor work orders', 'transaction files', 'closing coordination'],
+    'operations': ['process improvement', 'SOP documentation', 'vendor management', 'project tracking', 'compliance logs', 'service reporting'],
+    'finance': ['variance analysis', 'cash forecasting', 'budget modeling', 'management reporting', 'controls review', 'board packages'],
+}
+
+TITLE_FOCUS_RULES: list[tuple[str, str]] = [
+    ('azure', 'azure'), ('cloud', 'azure'), ('hybrid', 'azure'), ('identity', 'azure'), ('entra', 'azure'),
+    ('network', 'network'), ('unified communications', 'network'),
+    ('endpoint', 'endpoint'), ('intune', 'endpoint'), ('modern workplace', 'endpoint'), ('euc', 'endpoint'),
+    ('microsoft 365', 'm365'), ('m365', 'm365'),
+    ('security', 'security'), ('soc', 'security'),
+    ('systems', 'systems'), ('server', 'systems'), ('windows', 'systems'), ('infrastructure', 'systems'),
+    ('tax', 'tax'), ('bookkeeper', 'bookkeeping'), ('payroll', 'payroll'), ('audit', 'audit'), ('accountant', 'accounting'), ('controller', 'finance'), ('financial', 'finance'), ('finance', 'finance'),
+    ('recruiting', 'recruiting'), ('talent acquisition', 'recruiting'), ('hr ', 'hr'), ('benefits', 'hr'), ('onboarding', 'hr'), ('employee relations', 'hr'),
+    ('legal', 'legal'), ('paralegal', 'legal'), ('litigation', 'legal'),
+    ('medical', 'healthcare'), ('clinical', 'healthcare'), ('patient', 'healthcare'),
+    ('property', 'real_estate'), ('real estate', 'real_estate'), ('transaction', 'real_estate'), ('closing', 'real_estate'),
+    ('executive', 'executive'), ('board', 'executive'), ('chief of staff', 'executive'), ('office manager', 'executive'),
+]
+
+CATEGORY_FOCUS = {
+    'Network Administration': 'network', 'Systems Administration': 'systems', 'Endpoint / Microsoft 365': 'm365', 'Cloud & Hybrid': 'azure', 'Security': 'security',
+    'Executive & Administrative Support': 'executive', 'Accounting & Finance': 'accounting', 'CPA Firm': 'tax', 'HR & Recruiting': 'hr', 'Legal & Professional Services': 'legal',
+    'Healthcare': 'healthcare', 'Real Estate': 'real_estate', 'Operations & Business Support': 'operations'
+}
+
 ROLE_OVERRIDES = {
     'tax manager': ['Tax Planning', 'Review Workpapers', 'Client Advisory', 'Entity Returns', 'Tax Research', 'Staff Coaching'],
     'controller': ['Close Leadership', 'Internal Controls', 'Board Reporting', 'Cash Forecasting', 'Audit Leadership', 'Team Management'],
@@ -544,7 +589,9 @@ ROLE_OVERRIDES = {
 }
 
 
-def role_category(title: str) -> str:
+def role_category(title: str, requested_category: Optional[str] = None) -> str:
+    if requested_category in ROLE_LIBRARY:
+        return requested_category
     for category, titles in ROLE_LIBRARY.items():
         if title in titles:
             return category
@@ -555,36 +602,77 @@ def role_category(title: str) -> str:
     return 'Operations & Business Support'
 
 
-def role_profile(title: str) -> dict[str, Any]:
+def focus_key_for_role(title: str, category: str) -> str:
+    lowered = f' {title.lower()} '
+    for needle, key in TITLE_FOCUS_RULES:
+        if needle in lowered:
+            return key
+    return CATEGORY_FOCUS.get(category, 'operations')
+
+
+def role_profile(title: str, requested_category: Optional[str] = None) -> dict[str, Any]:
     lowered = title.lower().strip()
     if lowered in ROLE_SPECIALIZATIONS:
-        return ROLE_SPECIALIZATIONS[lowered]
-    category = role_category(title)
+        return json.loads(json.dumps(ROLE_SPECIALIZATIONS[lowered]))
+    category = role_category(title, requested_category)
     profile = json.loads(json.dumps(CATEGORY_PROFILES.get(category, CATEGORY_PROFILES['Operations & Business Support'])))
+    focus_key = focus_key_for_role(title, category)
+    role_terms = ROLE_FOCUS_LIBRARY[focus_key]
     for key, extra in ROLE_OVERRIDES.items():
         if key in lowered:
-            profile['skills'] = (extra + profile['skills'])[:12]
+            role_terms = extra + [x for x in role_terms if x not in extra]
             break
-    # Title-specific substitutions so every library role is materially different, not one generic corpse.
-    title_tokens = [w for w in re.split(r'[^A-Za-z0-9]+', title) if len(w) > 2 and w.lower() not in {'senior', 'administrator', 'engineer', 'manager', 'coordinator', 'assistant'}]
+    title_tokens = [w for w in re.split(r'[^A-Za-z0-9]+', title) if len(w) > 2 and w.lower() not in {'senior', 'administrator', 'engineer', 'manager', 'coordinator', 'assistant', 'specialist'}]
     distinctive = [f'{token} Operations' for token in title_tokens[:2]] + [f'{title} Stakeholder Support']
-    profile['skills'] = (distinctive + [x for x in profile['skills'] if x not in distinctive])[:12]
-    profile['technical']['Role Focus'] = f'{title} workflows, {category.lower()} standards, reporting, documentation, and stakeholder execution'
+    profile['skills'] = (role_terms + distinctive + [x for x in profile['skills'] if x not in role_terms and x not in distinctive])[:15]
+    profile['technical']['Role Focus'] = f'{title}: {", ".join(role_terms[:6])}'
+    profile['technical']['Execution Context'] = f'{category} standards, role-specific reporting, documentation, stakeholder communication, and audit-ready handoffs'
+    profile['certs'] = list(dict.fromkeys(profile.get('certs', []) + role_certifications(title, focus_key)))[:4]
+    profile['verbs'] = role_verbs(title, role_terms, category)
     return profile
 
 
-def fallback_role_resume(payload: RoleBuildIn) -> dict[str, Any]:
-    profile = role_profile(payload.title)
-    skills = profile['skills'][:12]
-    verbs = profile.get('verbs') or [
-        f'owned {payload.title.lower()} workflows across daily operations, documentation, and issue resolution',
-        f'improved {payload.industry.lower()} service delivery through repeatable processes and stakeholder communication',
-        'converted ambiguous requirements into trackable work, clean handoffs, and measurable operational outcomes',
+def role_certifications(title: str, focus_key: str) -> list[str]:
+    certs = {
+        'network': ['Cisco Certified Network Associate (CCNA)', 'CompTIA Network+'],
+        'systems': ['Microsoft Certified: Windows Server Hybrid Administrator Associate', 'CompTIA Server+'],
+        'endpoint': ['Microsoft 365 Certified: Endpoint Administrator Associate (MD-102)'],
+        'm365': ['Microsoft 365 Certified: Administrator Expert (MS-102)', 'Microsoft 365 Fundamentals'],
+        'azure': ['Microsoft Certified: Azure Administrator Associate (AZ-104)', 'Microsoft Azure Fundamentals'],
+        'security': ['CompTIA Security+', 'Microsoft Security, Compliance, and Identity Fundamentals'],
+        'executive': ['Certified Administrative Professional (CAP)'],
+        'accounting': ['QuickBooks ProAdvisor', 'Microsoft Excel Expert'],
+        'tax': ['IRS Annual Filing Season Program', 'QuickBooks ProAdvisor'],
+        'bookkeeping': ['QuickBooks ProAdvisor'],
+        'payroll': ['Fundamental Payroll Certification (FPC)'],
+        'audit': ['Audit Analytics / Workpaper Training'],
+        'hr': ['SHRM-CP Coursework'],
+        'recruiting': ['LinkedIn Recruiter / ATS Workflow Training'],
+        'legal': ['Paralegal Certificate'],
+        'healthcare': ['HIPAA Training', 'Certified Medical Administrative Assistant'],
+        'real_estate': ['Property Management Certificate', 'Real Estate License Coursework'],
+        'operations': ['CAPM', 'Lean Six Sigma Yellow Belt'],
+        'finance': ['Microsoft Excel Expert', 'FP&A Modeling Coursework'],
+    }
+    return certs.get(focus_key, [])
+
+
+def role_verbs(title: str, terms: list[str], category: str) -> list[str]:
+    return [
+        f'owned {title.lower()} delivery across {terms[0]}, {terms[1]}, and {terms[2]}',
+        f'improved {category.lower()} outcomes by standardizing {terms[3]}, {terms[4]}, and recurring status reporting',
+        f'converted {title.lower()} requirements into documented workflows, stakeholder-ready updates, and measurable service improvements',
     ]
-    category = role_category(payload.title)
+
+
+def fallback_role_resume(payload: RoleBuildIn) -> dict[str, Any]:
+    category = role_category(payload.title, payload.category)
+    profile = role_profile(payload.title, category)
+    skills = profile['skills'][:15]
+    verbs = profile.get('verbs') or role_verbs(payload.title, skills, category)
     return normalize_resume_data({
         'contact': {'name': '', 'title': payload.title, 'email': '', 'phone': '', 'linkedin': '', 'portfolio': '', 'location': ''},
-        'summary': f'{payload.title} with role-specific experience in {category.lower()} environments, combining {skills[0]}, {skills[1]}, and {skills[2]} with disciplined documentation, stakeholder partnership, and measurable execution. Recognized for translating business priorities into reliable processes, resolving operational blockers, and maintaining controls appropriate for {payload.industry} organizations.',
+        'summary': f'{payload.title} with focused experience in {category.lower()} environments, combining {skills[0]}, {skills[1]}, and {skills[2]} with disciplined documentation, stakeholder partnership, and measurable execution. Known for applying {skills[3]}, {skills[4]}, and {skills[5]} to improve reliability, control quality, and operational follow-through for {payload.industry} organizations.',
         'skills': [(skills[i:i+3] + ['', '', ''])[:3] for i in range(0, len(skills), 3)],
         'technical': profile['technical'],
         'experience': [
@@ -594,15 +682,15 @@ def fallback_role_resume(payload: RoleBuildIn) -> dict[str, Any]:
                 f'Partnered with leadership, peers, vendors, and end users to prioritize work, remove blockers, and improve {payload.title.lower()} outcomes.'
             ]},
             {'title': f'{payload.title} / Operations Specialist', 'company': 'Professional Services Organization', 'location': '', 'dates': '2019 – 2022', 'bullets': [
-                f'Supported {payload.title.lower()} functions across recurring operations, issue tracking, documentation, and stakeholder follow-up.',
-                f'Built checklists, templates, and reporting cadences that improved consistency and reduced preventable rework.',
+                f'Supported {payload.title.lower()} functions across {skills[0].lower()}, {skills[1].lower()}, issue tracking, documentation, and stakeholder follow-up.',
+                f'Built checklists, templates, and reporting cadences around {skills[2].lower()} and {skills[3].lower()} that improved consistency and reduced preventable rework.',
                 f'Handled confidential information, deadlines, and competing priorities with practical judgment and service-focused execution.'
             ]}
         ],
         'education': [{'degree': f'Professional development aligned to {payload.title}', 'school': '', 'details': payload.industry}],
         'certifications': profile.get('certs', []),
-        'additional': [f'Selected projects include {skills[0].lower()}, {skills[1].lower()}, workflow cleanup, reporting improvement, and stakeholder-ready documentation.'],
-        'custom_sections': [{'title': 'Role-Specific Impact', 'bullets': [f'Applied {skills[0]}, {skills[1]}, and {skills[2]} to improve execution quality.', f'Maintained clean handoffs and audit-ready documentation for {payload.title.lower()} responsibilities.']}]
+        'additional': [f'Selected projects include {skills[0].lower()}, {skills[1].lower()}, {skills[2].lower()}, workflow cleanup, reporting improvement, and stakeholder-ready documentation.'],
+        'custom_sections': [{'title': 'Role-Specific Impact', 'bullets': [f'Applied {skills[0]}, {skills[1]}, and {skills[2]} to improve execution quality.', f'Maintained clean handoffs and audit-ready documentation for {payload.title.lower()} responsibilities in {category.lower()} environments.']}]
     })
 
 @app.post('/api/role-build')
@@ -610,6 +698,7 @@ def role_build(payload: RoleBuildIn):
     prompt = '''Create premium resume content JSON for the requested target role. Return ONLY JSON matching this schema:
 {"contact":{"name":"","title":"","email":"","phone":"","linkedin":"","portfolio":"","location":""},"summary":"","skills":[["","",""]],"technical":{"Category":"items"},"experience":[{"title":"","company":"","location":"","dates":"","bullets":[""]}],"education":[{"degree":"","school":"","details":""}],"certifications":[],"additional":[],"custom_sections":[{"title":"","bullets":[""]}]}
 Requirements: 12-18 role-specific Areas of Expertise in three-column rows, strong executive summary, credible achievement-oriented bullets, and role-specific technical/tool categories. Keep contact fields blank except title. The content must be unmistakably specific to the exact requested title, not broad generic IT/operations language. For example: Azure Administrator must include ARM templates, VNets, NSGs, Entra ID, AZ-104, Azure Monitor, RBAC, and Cost Management; Network Administrator must include Cisco IOS, VLANs, BGP/OSPF, pfSense, Wireshark, CCNA, and network segmentation; Endpoint Engineer must include Intune, Autopilot, compliance policies, configuration profiles, MD-102, and SCCM co-management; M365 Engineer must include Exchange Online, SharePoint, Teams admin, DLP policies, MS-102, and Power Platform. Non-IT roles must avoid IT-only technical sections unless the requested title is technical.'''
+    prompt += '\nROLE PROFILE JSON:' + json.dumps(role_profile(payload.title, payload.category), indent=2)
     prompt += '\nREQUEST:' + payload.model_dump_json()
     generated = claude(prompt)
     parsed = extract_json_object(generated or '')
