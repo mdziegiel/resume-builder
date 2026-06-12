@@ -18,6 +18,11 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import KeepInFrame, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+PX_TO_PT = 0.75
+TECHNICAL_SIDEBAR_PX = 200
+TECHNICAL_SIDEBAR_WIDTH_PT = TECHNICAL_SIDEBAR_PX * PX_TO_PT
+TECHNICAL_CHARCOAL = '1e293b'
+
 from seed import DEFAULT_RESUME
 
 TEMPLATE_IDS = {
@@ -184,10 +189,18 @@ def docx_bytes(data: dict[str, Any], template: str) -> bytes:
     section = doc.sections[0]
     section.page_width = Inches(8.5)
     section.page_height = Inches(11)
-    section.top_margin = Inches(0.48)
-    section.bottom_margin = Inches(0.45)
-    section.left_margin = Inches(0.58)
-    section.right_margin = Inches(0.58)
+    if template == 'technical':
+        # A true fixed-width sidebar needs to own the page edge and table grid.
+        # Normal Word margins plus percentage widths are what caused overlap in exports.
+        section.top_margin = Inches(0)
+        section.bottom_margin = Inches(0)
+        section.left_margin = Inches(0)
+        section.right_margin = Inches(0)
+    else:
+        section.top_margin = Inches(0.48)
+        section.bottom_margin = Inches(0.45)
+        section.left_margin = Inches(0.58)
+        section.right_margin = Inches(0.58)
     set_doc_defaults(doc, template)
 
     if template == 'technical':
@@ -250,6 +263,28 @@ def cell_margins(cell, top=80, start=80, bottom=80, end=80) -> None:
             tc_mar.append(node)
         node.set(qn('w:w'), str(v))
         node.set(qn('w:type'), 'dxa')
+
+
+def set_cell_width(cell, width_twips: int) -> None:
+    cell.width = Inches(width_twips / 1440)
+    tc_pr = cell._tc.get_or_add_tcPr()
+    tc_w = tc_pr.find(qn('w:tcW'))
+    if tc_w is None:
+        tc_w = OxmlElement('w:tcW')
+        tc_pr.append(tc_w)
+    tc_w.set(qn('w:w'), str(width_twips))
+    tc_w.set(qn('w:type'), 'dxa')
+
+
+def set_fixed_table_layout(table) -> None:
+    table.autofit = False
+    table.allow_autofit = False
+    tbl_pr = table._tbl.tblPr
+    tbl_layout = tbl_pr.find(qn('w:tblLayout'))
+    if tbl_layout is None:
+        tbl_layout = OxmlElement('w:tblLayout')
+        tbl_pr.append(tbl_layout)
+    tbl_layout.set(qn('w:type'), 'fixed')
 
 
 def para_border(paragraph, bottom: str | None = None, left: str | None = None, top: str | None = None, size='8', space='2') -> None:
@@ -442,14 +477,29 @@ def add_skills_table(container, skills: list[list[str]], template: str) -> None:
 
 def render_docx_sidebar(doc: Document, data: dict[str, Any], template: str, *, dark: bool, width_pct: int) -> None:
     table = doc.add_table(rows=1, cols=2)
-    table.autofit = False
+    set_fixed_table_layout(table)
     left = table.cell(0, 0)
     right = table.cell(0, 1)
-    left.width = Inches(2.35 if width_pct == 30 else 2.55)
-    right.width = Inches(5.3)
-    shade_cell(left, '1e293b' if dark else 'f8fafc')
-    cell_margins(left, 360, 220, 360, 220)
-    cell_margins(right, 360, 340, 360, 340)
+    if template == 'technical':
+        page_twips = int(doc.sections[0].page_width.inches * 1440)
+        left_twips = int((TECHNICAL_SIDEBAR_WIDTH_PT / 72) * 1440)
+        right_twips = page_twips - left_twips
+        sidebar_fill = TECHNICAL_CHARCOAL
+        left_margins = (620, 190, 620, 190)
+        right_margins = (620, 420, 620, 420)
+    else:
+        usable_twips = int((doc.sections[0].page_width.inches - doc.sections[0].left_margin.inches - doc.sections[0].right_margin.inches) * 1440)
+        left_twips = int(usable_twips * width_pct / 100)
+        right_twips = usable_twips - left_twips
+        sidebar_fill = 'f8fafc'
+        left_margins = (360, 220, 360, 220)
+        right_margins = (360, 340, 360, 340)
+    set_cell_width(left, left_twips)
+    set_cell_width(right, right_twips)
+    shade_cell(left, sidebar_fill)
+    shade_cell(right, 'ffffff')
+    cell_margins(left, *left_margins)
+    cell_margins(right, *right_margins)
     left.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
     right.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
     c = data['contact']
@@ -515,9 +565,15 @@ def pdf_bytes(data: dict[str, Any], template: str) -> bytes:
     data = merge_resume_data(data)
     buf = io.BytesIO()
     margins = 0.42 * inch
+    top_margin = 0.45 * inch
+    bottom_margin = 0.45 * inch
     if template == 'minimal':
         margins = 0.50 * inch
-    doc = SimpleDocTemplate(buf, pagesize=LETTER, leftMargin=margins, rightMargin=margins, topMargin=0.45 * inch, bottomMargin=0.45 * inch)
+    elif template == 'technical':
+        margins = 0
+        top_margin = 0
+        bottom_margin = 0
+    doc = SimpleDocTemplate(buf, pagesize=LETTER, leftMargin=margins, rightMargin=margins, topMargin=top_margin, bottomMargin=bottom_margin)
     styles = pdf_styles(template)
     story = []
     if template == 'technical':
@@ -676,19 +732,56 @@ def chip_table(items: list[str], fill: str) -> Table:
 def pdf_sidebar(data: dict[str, Any], template: str, dark: bool) -> list[Any]:
     styles = pdf_styles(template)
     c = data['contact']
-    sidebar_style = ParagraphStyle('side', parent=styles['small'], textColor=colors.white if dark else colors.HexColor('#0f172a'), fontName='Courier' if template == 'technical' else 'Helvetica', fontSize=7.8, leading=9.5)
-    side_parts: list[Any] = [P(c['name'], ParagraphStyle('sidename', parent=sidebar_style, fontName='Helvetica-Bold', fontSize=15, leading=17)), P(c['title'], sidebar_style), Spacer(1, 8)]
+    if template == 'technical':
+        page_width, page_height = LETTER[0] - 12, LETTER[1] - 12
+        left_col = TECHNICAL_SIDEBAR_WIDTH_PT
+        right_col = page_width - left_col
+        row_height = page_height
+        side_pad_l, side_pad_r = 13, 11
+        main_pad_l, main_pad_r = 28, 28
+        side_frame_width = left_col - side_pad_l - side_pad_r
+        main_frame_width = right_col - main_pad_l - main_pad_r
+        frame_height = row_height - 56
+        sidebar_style = ParagraphStyle('side', parent=styles['small'], textColor=colors.white, fontName='Helvetica', fontSize=7.2, leading=8.8, splitLongWords=True, wordWrap='CJK')
+        side_name_style = ParagraphStyle('sidename', parent=sidebar_style, fontName='Helvetica-Bold', fontSize=13.5, leading=15.5, splitLongWords=True, wordWrap='CJK')
+        side_head_style = ParagraphStyle('sideh', parent=sidebar_style, fontName='Helvetica-Bold', fontSize=7.6, leading=9.2, textColor=colors.HexColor('#93c5fd'))
+        main_parts = pdf_body(data, template, styles)
+    else:
+        page_width = LETTER[0] - (0.42 * inch * 2)
+        left_col = page_width * 0.30
+        right_col = page_width - left_col
+        row_height = 9.75 * inch
+        side_pad_l, side_pad_r = 14, 12
+        main_pad_l, main_pad_r = 20, 0
+        side_frame_width = left_col - side_pad_l - side_pad_r
+        main_frame_width = right_col - main_pad_l - main_pad_r
+        frame_height = 9.15 * inch
+        sidebar_style = ParagraphStyle('side', parent=styles['small'], textColor=colors.HexColor('#0f172a'), fontName='Helvetica', fontSize=7.8, leading=9.5, splitLongWords=True)
+        side_name_style = ParagraphStyle('sidename', parent=sidebar_style, fontName='Helvetica-Bold', fontSize=15, leading=17)
+        side_head_style = ParagraphStyle('sideh', parent=sidebar_style, fontName='Helvetica-Bold', textColor=colors.HexColor('#0f172a'))
+        main_parts = pdf_body(data, template, styles)
+    side_parts: list[Any] = [P(c['name'], side_name_style), P(c['title'], sidebar_style), Spacer(1, 8)]
     for head, values in [('Contact', [c.get('email'), c.get('phone'), c.get('location'), c.get('linkedin'), c.get('portfolio')]), ('Skills', [x for row in data['skills'] for x in row if x]), ('Certifications', data['certifications'])]:
-        side_parts.append(P(head.upper(), ParagraphStyle('sideh', parent=sidebar_style, fontName='Helvetica-Bold', textColor=colors.HexColor('#93c5fd') if dark else colors.HexColor('#0f172a'))))
+        side_parts.append(P(head.upper(), side_head_style))
         for v in values:
             if v:
                 side_parts.append(P(v, sidebar_style))
         side_parts.append(Spacer(1, 6))
-    main_parts = pdf_body(data, template, styles)
-    side_frame = KeepInFrame(2.05 * inch, 9.15 * inch, side_parts, mode='shrink')
-    main_frame = KeepInFrame(4.95 * inch, 9.15 * inch, main_parts, mode='shrink')
-    table = Table([[side_frame, main_frame]], colWidths=[2.25 * inch, 5.15 * inch])
-    table.setStyle(TableStyle([('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#1e293b' if dark else '#f8fafc')), ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (0, 0), 14), ('RIGHTPADDING', (0, 0), (0, 0), 12), ('TOPPADDING', (0, 0), (-1, -1), 8), ('BOTTOMPADDING', (0, 0), (-1, -1), 8), ('LEFTPADDING', (1, 0), (1, 0), 20), ('RIGHTPADDING', (1, 0), (1, 0), 0)]))
+    side_frame = KeepInFrame(side_frame_width, frame_height, side_parts, mode='shrink')
+    main_frame = KeepInFrame(main_frame_width, frame_height, main_parts, mode='shrink')
+    table = Table([[side_frame, main_frame]], colWidths=[left_col, right_col], rowHeights=[row_height])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, 0), colors.HexColor('#' + (TECHNICAL_CHARCOAL if dark else 'f8fafc'))),
+        ('BACKGROUND', (1, 0), (1, 0), colors.white),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (0, 0), side_pad_l),
+        ('RIGHTPADDING', (0, 0), (0, 0), side_pad_r),
+        ('TOPPADDING', (0, 0), (-1, -1), 28 if template == 'technical' else 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 28 if template == 'technical' else 8),
+        ('LEFTPADDING', (1, 0), (1, 0), main_pad_l),
+        ('RIGHTPADDING', (1, 0), (1, 0), main_pad_r),
+        ('LINEBEFORE', (1, 0), (1, 0), 1.0, colors.HexColor('#38bdf8' if template == 'technical' else '#cbd5e1')),
+    ]))
     return [table]
 
 

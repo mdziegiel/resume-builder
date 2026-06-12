@@ -100,12 +100,12 @@ body { margin: 0; background: radial-gradient(circle at 15% 0%, rgba(249,115,22,
 .resume-executive .job-line b { color: #0a1628; }
 .resume-executive .skill-table td::before { background: #c8a45d; }
 
-/* Technical — true 280px charcoal sidebar, white engineer main column. */
-.resume-technical { font-family: Inter, Arial, Helvetica, sans-serif; font-size: 12.5px; color: #111827; grid-template-columns: 280px 1fr; }
-.resume-technical .resume-sidebar { background: #1e293b; color: white; }
-.resume-technical .resume-sidebar h1 { font-size: 28px; font-weight: 900; letter-spacing: -.02em; }
+/* Technical — fixed 200px charcoal sidebar, separated from the white main column. */
+.resume-technical { font-family: Inter, Arial, Helvetica, sans-serif; font-size: 12.5px; color: #111827; grid-template-columns: 200px minmax(0, 1fr); }
+.resume-technical .resume-sidebar { width: 200px; min-width: 200px; max-width: 200px; background: #1e293b; color: white; overflow-wrap: anywhere; word-break: normal; }
+.resume-technical .resume-sidebar h1 { font-size: 24px; font-weight: 900; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .resume-technical .sidebar-title { color: #93c5fd; }
-.resume-technical .resume-main { padding: 42px 44px; }
+.resume-technical .resume-main { min-width: 0; padding: 42px 44px; background: #fff; color: #111827; border-left: 2px solid #38bdf8; }
 .resume-technical .resume-section-title { color: #0f172a; border-left: 4px solid #38bdf8; background: #f1f5f9; padding: 6px 0 6px 10px; letter-spacing: .12em; }
 .resume-technical .resume-sidebar .resume-section-title { background: transparent; border-left: 0; border-bottom: 1px solid rgba(255,255,255,.24); padding: 0 0 6px; color: #93c5fd; }
 .resume-technical .resume-sidebar .skill-chips span { background: rgba(148,163,184,.20); color: #f8fafc; border: 1px solid rgba(255,255,255,.12); }
